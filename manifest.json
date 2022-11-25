@@ -1,0 +1,35 @@
+{
+  "manifest_version": 2,
+  "name": "Tab Grouper",
+  "version": "0.0.3",
+  "description": "Group tabs",
+  "icons": {
+    "48": "res/icons/48.png",
+    "32": "res/icons/32.png",
+    "16": "res/icons/16.png"
+  },
+
+  "permissions": [
+    "tabs",
+    "tabHide",
+    "menus",
+    "sessions"
+  ],
+
+  "background": {
+    "scripts": [
+      "src/menus.js",
+      "src/groups.js",
+      "src/tabs.js",
+      "src/windows.js",
+
+      "src/background.js"
+    ]
+  },
+
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "tab-grouper@TheNamlessGuy.github.io"
+    }
+  }
+}

@@ -1,0 +1,533 @@
+const Tabs = {
+  _tabs: {},
+  _cachedGroupTabs: {},
+  _cachedTabsInGroups: {},
+
+  init: async function() {
+    if (!browser.tabs.onCreated.hasListener(Tabs._onCreated)) {
+      browser.tabs.onCreated.addListener(Tabs._onCreated);
+    }
+
+    if (!browser.tabs.onActivated.hasListener(Tabs._onActivated)) {
+      browser.tabs.onActivated.addListener(Tabs._onActivated);
+    }
+
+    if (!browser.tabs.onUpdated.hasListener(Tabs._onUpdated)) {
+      browser.tabs.onUpdated.addListener(Tabs._onUpdated);
+    }
+
+    if (!browser.tabs.onMoved.hasListener(Tabs._onMoved)) {
+      browser.tabs.onMoved.addListener(Tabs._onMoved);
+    }
+
+    if (!browser.tabs.onRemoved.hasListener(Tabs._onRemoved)) {
+      browser.tabs.onRemoved.addListener(Tabs._onRemoved);
+    }
+
+    const windows = await Windows.getAll();
+    for (const window of windows) {
+      const tabs = await Windows.getAllTabsIn(window.id);
+      for (const tab of tabs) {
+        const group = await Tabs.getGroup(tab.id);
+        const isGroupTab = await Tabs.isGroupTab(tab.id);
+
+        if (isGroupTab) {
+          await Tabs._initTab(tab.id, group, tab.windowId);
+        } else if (group) {
+          Tabs._cachedTabsInGroups[tab.id] = group;
+        }
+      }
+    }
+  },
+
+  /**
+   * @param {string} group
+   * @param {number} windowID
+   * @param {number} index
+   */
+  createGroupTab: async function(group, windowID, index) {
+    const tab = await browser.tabs.create({
+      active: true,
+      url: '/src/group-tab/index.html',
+      windowId: windowID,
+      index: index,
+    });
+
+    await Tabs.setGroup(tab.id, group);
+    await Tabs.setGroupTab(tab.id);
+
+    await Tabs._initTab(tab.id, group, tab.windowId);
+  },
+
+  /**
+   * @param {number} tabID
+   * @param {string} group
+   * @param {number} windowID
+   */
+  _initTab: async function(tabID, group, windowID) {
+    await browser.tabs.executeScript(tabID, {file: '/src/group-tab/inject.js'});
+    const port = await browser.tabs.connect(tabID);
+    port.onMessage.addListener(Tabs._onTabCommunication(group, windowID));
+    Tabs._tabs[group] = {port: port};
+
+    Tabs._cachedGroupTabs[tabID] = group;
+
+    await Tabs.sendMessage_init(group, await Tabs.getGroupTabs(group, windowID), windowID);
+  },
+
+  /**
+   * @param {string} group
+   * @param {number} windowID
+   * @param {boolean} includeGroupTab
+   * @param {number[]} except The IDs of the tabs to ignore
+   * @returns {Promise<{min: number, max: number}|null>}
+   */
+  getGroupIndexSpan: async function(group, windowID, includeGroupTab = false, except = []) {
+    const tabs = (await Tabs.getGroupTabs(group, windowID, includeGroupTab)).filter(x => !except.includes(x.id)).sort((a, b) => a.index - b.index);
+    if (tabs.length === 0) { return null; }
+    return {
+      min: tabs[0].index,
+      max: tabs[tabs.length - 1].index,
+    }
+  },
+
+  /**
+   * @param {string} oldName
+   * @param {string} newName
+   * @param {number} windowID
+   */
+  renameGroup: async function(oldName, newName, windowID) {
+    const tabs = await Tabs.getGroupTabs(oldName, windowID, true);
+    for (const tab of tabs) {
+      await Tabs.removeGroup(tab.id);
+      await Tabs.setGroup(tab.id, newName);
+
+      Tabs._cachedGroupTabs[tab.id] = newName;
+      Tabs._cachedTabsInGroups[tab.id] = newName;
+    }
+
+    Tabs._tabs[newName] = Tabs._tabs[oldName];
+    delete Tabs._tabs[oldName];
+
+    await Tabs.sendMessage_rename(newName);
+  },
+
+  // START: Listeners
+  /**
+   * @param {string} group
+   * @param {number} windowID
+   * @returns {(msg: Record<string, any>) => Promise<void>}
+   */
+  _onTabCommunication: function(group, windowID) {
+    return async (msg) => {
+      if (msg.action === 'removeTab') {
+        Groups.removeTab(group, msg.tabID);
+      } else if (msg.action === 'swapToTab') {
+        Tabs.activate(msg.tabID);
+      } else if (msg.action === 'highlightTabs') {
+        Tabs.highlightGroup(group, windowID);
+      } else if (msg.action === 'rename') {
+        const oldName = group;
+        const newName = msg.name.trim();
+
+        if (oldName === newName) {
+          return;
+        }
+
+        if (newName.length === 0) {
+          Tabs.sendMessage_errors(group, 'Cannot have an empty group name');
+          return;
+        }
+
+        const groups = await Groups.getAll();
+        if (groups.includes(newName)) {
+          Tabs.sendMessage_errors(group, 'There is already a group called ' + newName);
+          return;
+        }
+
+        group = newName;
+        Groups.rename(oldName, newName, windowID);
+      }
+    };
+  },
+
+  /**
+   * @param {string} group
+   * @param {number} windowID
+   */
+  highlightGroup: async function(group, windowID) {
+    const tabs = await Tabs.getGroupTabs(group, windowID);
+    for (const tab of tabs) {
+      await Tabs.highlight(tab.id);
+    }
+  },
+
+  /**
+   * @param {browser.tabs.Tab} tab
+   */
+  _onCreated: async function(tab) {
+    const group = await Tabs.getGroup(tab.id);
+    const isGroupTab = await Tabs.isGroupTab(tab.id);
+
+    if (isGroupTab) {
+      // Reopened a closed group tab
+      await Tabs.unsetGroupTab(tab.id);
+      await Tabs.removeGroup(tab.id);
+
+      // Tell the tab that its no longer a group tab
+      await browser.tabs.executeScript(tab.id, {file: '/src/group-tab/inject.js'});
+      const port = await browser.tabs.connect(tab.id);
+      port.postMessage({action: 'reopened'});
+      port.disconnect();
+    } else if (group) {
+      // Reopened tab that was previously part of a group
+      await Tabs.removeGroup(tab.id);
+    }
+
+    await Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);
+    await Groups.collapseAllGroupsExceptCurrent(tab.windowId);
+  },
+
+  /**
+   * @param {{previousTabId: number, tabId: number, windowId: number}} info
+   */
+  _onActivated: async function(info) {
+    await Groups.setActive(await Tabs.getGroup(info.tabId), info.windowId);
+  },
+
+  /**
+   * @param {number} tabID
+   * @param {{windowId: number, fromIndex: number, toIndex: number}} info
+   */
+  _onMoved: async function(tabID, info) {
+    const group = await Tabs.getGroup(tabID);
+    const isGroupTab = await Tabs.isGroupTab(tabID);
+
+    if (isGroupTab) {
+      // Moved group tab
+      // 1. Make sure it's not in the middle of some other group
+      // 2. Move all tabs belonging to it the same distance in the same direction
+      const moved = await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, group);
+      if (!moved) {
+        const offset = info.toIndex - info.fromIndex;
+        const tabs = await Tabs.getGroupTabs(group, info.windowId);
+
+        for (const tab of tabs) {
+          await Tabs.move(tab.id, tab.index + offset);
+        }
+      }
+    } else if (group != null) {
+      // Moved tab in group. Make sure it stays within the group
+      await Tabs.moveTabIntoGroup(tabID, info.windowId, info.toIndex, group, info.windowId);
+    } else {
+      // Moved non-grouped tab. Make sure it doesn't accidentally end up in the middle of a group
+      await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, null);
+    }
+  },
+
+  /**
+   * @param {number} tabID
+   * @param {Partial<browser.tabs.Tab>} changeInfo
+   * @param {browser.tabs.Tab} tab
+   * @returns
+   */
+  _onUpdated: async function(tabID, changeInfo, tab) {
+    if (changeInfo.status !== 'complete') { return; }
+
+    const group = await Tabs.getGroup(tabID);
+    const isGroupTab = await Tabs.isGroupTab(tabID);
+
+    if (isGroupTab) {
+      await Tabs._initTab(tabID, group, tab.windowId);
+    } else if (group) {
+      await Tabs.sendMessage_updateTab(group, tab);
+    }
+  },
+
+  /**
+   * @param {number} tabID
+   * @param {{windowId: number, isWindowClosing: boolean}} info
+   */
+  _onRemoved: async function(tabID, info) {
+    if (tabID in Tabs._cachedGroupTabs) {
+      await Groups.remove(Tabs._cachedGroupTabs[tabID], info.windowId);
+    } else if (tabID in Tabs._cachedTabsInGroups) {
+      await Groups.removeTab(Tabs._cachedTabsInGroups[tabID], tabID);
+    }
+
+    delete Tabs._cachedGroupTabs[tabID];
+    delete Tabs._cachedTabsInGroups[tabID];
+  },
+  // END: Listeners
+
+  // START: Tags
+  /**
+   * @param {number} tabID
+   * @param {string} group
+   */
+  setGroup: async function(tabID, group) {
+    Tabs._cachedTabsInGroups[tabID] = group;
+    await browser.sessions.setTabValue(tabID, 'group', group);
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<void>}
+   */
+  removeGroup: function(tabID) {
+    delete Tabs._cachedTabsInGroups[tabID];
+    return new Promise((resolve) => {
+      browser.sessions.removeTabValue(tabID, 'group').then(() => resolve(), () => resolve());
+    });
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<string|null>}
+   */
+  getGroup: async function(tabID) {
+    return new Promise((resolve) => {
+      // @ts-ignore
+      browser.sessions.getTabValue(tabID, 'group').then((value) => resolve(value), () => resolve(null));
+    });
+  },
+
+  /**
+   * @param {number} tabID
+   */
+  setGroupTab: async function(tabID) {
+    await browser.sessions.setTabValue(tabID, 'group-tab', true);
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<boolean>}
+   */
+  isGroupTab: async function(tabID) {
+    return new Promise((resolve) => {
+      // @ts-ignore
+      browser.sessions.getTabValue(tabID, 'group-tab').then((value) => resolve(value === true), () => resolve(false));
+    });
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<void>}
+   */
+  unsetGroupTab: async function(tabID) {
+    delete Tabs._cachedGroupTabs[tabID];
+    return new Promise((resolve) => {
+      browser.sessions.removeTabValue(tabID, 'group-tab').then(() => resolve(), () => resolve());
+    });
+  },
+  // END: Tags
+
+  // START: Generics
+  /**
+   * @param {number} tabID
+   * @returns {Promise<browser.tabs.Tab|null>}
+   */
+  get: async function(tabID) {
+    return await browser.tabs.get(tabID);
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<void>}
+   */
+  show: function(tabID) {
+    return new Promise((resolve) => {
+      browser.tabs.show(tabID).then(() => resolve(), () => resolve());
+    });
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<void>}
+   */
+  hide: async function(tabID) {
+    return new Promise((resolve) => {
+      browser.tabs.hide(tabID).then(() => resolve(), () => resolve());
+    });
+  },
+
+  /**
+   * @param {number} windowID
+   * @returns {Promise<browser.tabs.Tab[]>}
+   */
+  getSelected: async function(windowID) {
+    return await browser.tabs.query({windowId: windowID, highlighted: true});
+  },
+
+  /**
+   * @param {number} tabID
+   */
+  highlight: async function(tabID) {
+    await browser.tabs.update(tabID, {highlighted: true, active: false});
+  },
+
+  /**
+   * @param {number} tabID
+   */
+  activate: async function(tabID) {
+    await browser.tabs.update(tabID, {active: true});
+  },
+
+  /**
+   * @param {number} tabIDs
+   * @param {number} index
+   */
+  move: async function(tabIDs, index) {
+    await browser.tabs.move(tabIDs, {index: index});
+  },
+
+  /**
+   * @param {string} group
+   * @param {number} windowID
+   * @param {boolean} includeGroupTab
+   * @returns {Promise<browser.tabs.Tab[]>}
+   */
+  getGroupTabs: async function(group, windowID, includeGroupTab = false) {
+    const tabs = await Windows.getAllTabsIn(windowID);
+
+    const retval = [];
+    for (const tab of tabs) {
+      const tabGroup = await Tabs.getGroup(tab.id);
+      const isGroupTab = await Tabs.isGroupTab(tab.id);
+      if (tabGroup === group && (includeGroupTab || !isGroupTab)) {
+        retval.push(tab);
+      }
+    }
+
+    return retval;
+  },
+
+  /**
+   * @param {number} windowID
+   * @returns {Promise<browser.tabs.Tab>}
+   */
+  getActive: async function(windowID) {
+    return (await browser.tabs.query({windowId: windowID, active: true}))[0];
+  },
+
+  /**
+   * @param {number} windowID
+   * @returns {Promise<string|null>}
+   */
+  getCurrentGroup: async function(windowID) {
+    return await Tabs.getGroup((await Tabs.getActive(windowID)).id);
+  },
+  // END: Generics
+
+  // START: Movement
+  /**
+   * @param {number} tabID
+   * @param {number} currentWindowID
+   * @param {number} tabIndex
+   * @param {string} group
+   * @param {number} windowID
+   * @returns {Promise<void>}
+   */
+  moveTabIntoGroup: async function(tabID, currentWindowID, tabIndex, group, windowID) {
+    const data = await Tabs.getGroupIndexSpan(group, windowID, true, [tabID]);
+    if (data == null) { return; }
+
+    if (currentWindowID !== windowID) {
+      await Windows.moveTabTo(tabID, windowID, data.max + 1);
+    } else if (tabIndex < data.min) {
+      await Tabs.move(tabID, data.min);
+    } else if (tabIndex > data.max + 1) {
+      await Tabs.move(tabID, data.max + 1);
+    }
+  },
+
+  /**
+   * @param {number} tabID
+   * @param {number} windowID
+   * @param {number} index
+   * @param {string} except The group to ignore
+   * @returns {Promise<boolean>}
+   */
+  moveTabOutOfOtherGroups: async function(tabID, windowID, index, except) {
+    const groups = await Windows.getAllGroupsIn(windowID);
+
+    for (const group of groups) {
+      if (group === except) { continue; }
+
+      const data = await Tabs.getGroupIndexSpan(group, windowID, true);
+      if (data == null) { continue; }
+
+      if (index >= data.min && index <= data.max) {
+        await Tabs.move(tabID, data.max + 1);
+        return true;
+      }
+    }
+
+    return false;
+  },
+  // END: Movement
+
+  // START: Messaging
+  /**
+   * @param {string} group
+   * @param {Record<string, any>} msg
+   */
+  _sendMessage: async function(group, msg) {
+    if (group in Tabs._tabs) {
+      Tabs._tabs[group].port.postMessage(msg);
+    }
+  },
+
+  /**
+   * @param {string} group
+   * @param {browser.tabs.Tab[]} tabs
+   * @param {number} windowID
+   */
+  sendMessage_init: async function(group, tabs, windowID) {
+    await Tabs._sendMessage(group, {action: 'init', group: group, tabs: tabs, windowID: windowID});
+  },
+
+  /**
+   * @param {string} group
+   */
+  sendMessage_rename: async function(group) {
+    await Tabs._sendMessage(group, {action: 'rename', group: group});
+  },
+
+  /**
+   * @param {string} group
+   * @param {browser.tabs.Tab} tab
+   */
+  sendMessage_newTab: async function(group, tab) {
+    await Tabs._sendMessage(group, {action: 'newTab', tab: tab});
+  },
+
+  /**
+   * @param {string} group
+   * @param {browser.tabs.Tab} tab
+   */
+  sendMessage_updateTab: async function(group, tab) {
+    await Tabs._sendMessage(group, {action: 'updateTab', tab: tab});
+  },
+
+  /**
+   * @param {string} group
+   * @param {number} tabID
+   */
+  sendMessage_removeTab: async function(group, tabID) {
+    await Tabs._sendMessage(group, {action: 'removeTab', tabID: tabID});
+  },
+
+  /**
+   * @param {string} group
+   * @param {string|string[]} errors
+   */
+  sendMessage_errors: async function(group, errors) {
+    await Tabs._sendMessage(group, {action: 'errors', errors: Array.isArray(errors) ? errors : [errors]});
+  },
+  // END: Messaging
+};
+
+function getTabs() {
+  return Tabs;
+}

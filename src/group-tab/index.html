@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Group</title>
+    <link id="page-icon" rel="shortcut icon" href="/res/icons/48.png">
+    <link type="text/css" rel="stylesheet" href="/src/group-tab/index.css">
+    <script src="/src/group-tab/index.js"></script>
+  </head>
+
+  <template id="tab-template">
+    <div class="tab">
+      <img class="tab-icon"></img>
+      <span class="tab-title" title="Swap to this tab"></span>
+      <span class="tab-remove" title="Remove this tab from this group">X</span>
+    </div>
+  </template>
+
+  <template id="error-template">
+    <div class="error">
+      * <span class="error-msg"></span>
+    </div>
+  </template>
+
+  <body>
+    <div id="active-content">
+      <div id="errors" class="hidden"></div>
+      Group name: <input id="group-name-id" type="text" placeholder="If you're seeing this, you're a fast clicker (or something went wrong)">
+      <button id="group-name-save">Save</button>
+      <br>
+      Tabs: <button id="highlight-tabs">Highlight tabs in this group</button>
+      <div id="tabs-container"></div>
+    </div>
+
+    <div id="inactive-content" class="hidden">
+      This tab is no longer part of any group. Create a new group if you want to recreate the group that this tab used to belong to.
+    </div>
+  </body>
+</html>

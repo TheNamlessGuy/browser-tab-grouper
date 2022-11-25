@@ -1,0 +1,43 @@
+body {
+  background-color: #000;
+  color: #FFF;
+}
+
+.hidden {
+  display: none;
+}
+
+#tabs-container {
+  width: fit-content;
+}
+
+.tab {
+  border: 1px solid #FFF;
+  padding: 2px;
+  width: 100%;
+  user-select: none;
+}
+
+.tab > .tab-icon {
+  width: 16px;
+  height: 16px;
+  margin-right: 5px;
+}
+
+.tab > .tab-title {
+  cursor: pointer;
+}
+
+.tab > .tab-remove {
+  background-color: #F00;
+  cursor: pointer;
+}
+
+#errors {
+  margin: 5px 0;
+  background-color: #F00;
+}
+
+.error {
+  padding: 5px;
+}
