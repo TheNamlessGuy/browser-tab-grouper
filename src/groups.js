@@ -50,11 +50,11 @@ const Groups = {
       }
     }
 
+    const windowID = await Windows.getIDForGroup(group);
+    await Tabs.moveTabIntoGroup(tab.id, tab.windowId, tab.index, group, windowID);
     await Tabs.setGroup(tab.id, group);
     await Tabs.sendMessage_newTab(group, tab);
-    await Groups.collapseAllGroupsExceptCurrent(tab.windowId);
-
-    await Tabs.moveTabIntoGroup(tab.id, tab.windowId, tab.index, group, tab.windowId);
+    await Groups.collapseAllGroupsExceptCurrent(windowID);
   },
 
   /**
@@ -150,6 +150,9 @@ const Groups = {
   },
 };
 
+/**
+ * @returns {typeof Groups}
+ */
 function getGroups() {
   return Groups;
 }

@@ -133,6 +133,9 @@ const Menus = {
   },
 };
 
+/**
+ * @returns {typeof Menus}
+ */
 function getMenus() {
   return Menus;
 }

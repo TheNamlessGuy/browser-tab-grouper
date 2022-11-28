@@ -45,6 +45,26 @@ const Windows = {
   },
   // END: Generics
 
+  /**
+   * @param {string} group
+   * @returns {Promise<number|null>}
+   */
+  getIDForGroup: async function(group) {
+    const windows = await Windows.getAll();
+    for (const window of windows) {
+      const tabs = await Windows.getAllTabsIn(window.id);
+      for (const tab of tabs) {
+        const tabGroup = await Tabs.getGroup(tab.id);
+        const isGroupTab = await Tabs.isGroupTab(tab.id);
+        if (isGroupTab && tabGroup === group) {
+          return window.id;
+        }
+      }
+    }
+
+    return null;
+  },
+
   reset: async function() {
     const windows = await Windows.getAll();
 
@@ -59,6 +79,9 @@ const Windows = {
   },
 };
 
+/**
+ * @returns {typeof Windows}
+ */
 function getWindows() {
   return Windows;
 }

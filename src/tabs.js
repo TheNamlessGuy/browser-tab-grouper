@@ -20,6 +20,10 @@ const Tabs = {
       browser.tabs.onMoved.addListener(Tabs._onMoved);
     }
 
+    if (!browser.tabs.onAttached.hasListener(Tabs._onAttached)) {
+      browser.tabs.onAttached.addListener(Tabs._onAttached);
+    }
+
     if (!browser.tabs.onRemoved.hasListener(Tabs._onRemoved)) {
       browser.tabs.onRemoved.addListener(Tabs._onRemoved);
     }
@@ -65,7 +69,7 @@ const Tabs = {
    * @param {number} windowID
    */
   _initTab: async function(tabID, group, windowID) {
-    await browser.tabs.executeScript(tabID, {file: '/src/group-tab/inject.js'});
+    await browser.tabs.executeScript(tabID, {file: '/src/group-tab/inject.js'}).catch((e) => {console.error('Failed to attach group script', e)});
     const port = await browser.tabs.connect(tabID);
     port.onMessage.addListener(Tabs._onTabCommunication(group, windowID));
     Tabs._tabs[group] = {port: port};
@@ -222,6 +226,38 @@ const Tabs = {
     } else {
       // Moved non-grouped tab. Make sure it doesn't accidentally end up in the middle of a group
       await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, null);
+    }
+  },
+
+  /**
+   * @param {number} tabID
+   * @param {{newWindowId: number, newPosition: number}} info
+   */
+  _onAttached: async function(tabID, info) {
+    const group = Tabs._cachedTabsInGroups[tabID];
+    const wasGroupTab = Tabs._cachedGroupTabs[tabID];
+
+    if (wasGroupTab) {
+      // Recreate the group in the new window
+      const oldWindowID = await Windows.getIDForGroup(group);
+      await Tabs.setGroup(tabID, group);
+      await Tabs.setGroupTab(tabID);
+      await Tabs._initTab(tabID, group, info.newWindowId);
+      const tabs = await Tabs.getGroupTabs(group, oldWindowID);
+      for (const tab of tabs) {
+        await Tabs.moveTabIntoGroup(tab.id, tab.windowId, tab.index, group, info.newWindowId);
+      }
+      await Groups.collapseAllGroupsExceptCurrent(info.newWindowId);
+      await Groups.collapseAllGroupsExceptCurrent(oldWindowID);
+    } else if (group) {
+      const windowID = await Windows.getIDForGroup(group);
+      if (info.newWindowId !== windowID) {
+        // Detach the tab from the group
+        await Groups.removeTab(group, tabID);
+      } else {
+        // Probably part of a group tab move - reattach the tab to the group
+        await Groups.addTab(group, await Tabs.get(tabID));
+      }
     }
   },
 
@@ -528,6 +564,9 @@ const Tabs = {
   // END: Messaging
 };
 
+/**
+ * @returns {typeof Tabs}
+ */
 function getTabs() {
   return Tabs;
 }
