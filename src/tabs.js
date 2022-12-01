@@ -1,5 +1,6 @@
 const Tabs = {
   _tabs: {},
+  _cachedLastActiveTab: {},
   _cachedGroupTabs: {},
   _cachedTabsInGroups: {},
 
@@ -196,7 +197,17 @@ const Tabs = {
    * @param {{previousTabId: number, tabId: number, windowId: number}} info
    */
   _onActivated: async function(info) {
-    await Groups.setActive(await Tabs.getGroup(info.tabId), info.windowId);
+    const group = await Tabs.getGroup(info.tabId);
+    const previousGroup = await Tabs.getGroup(info.previousTabId);
+    await Groups.setActive(group, info.windowId);
+
+    if (group) {
+      if (group === previousGroup) {
+        Tabs._cachedLastActiveTab[group] = info.tabId;
+      } else if (Tabs._cachedLastActiveTab[group] != null) {
+        Tabs.activate(Tabs._cachedLastActiveTab[group]);
+      }
+    }
   },
 
   /**
