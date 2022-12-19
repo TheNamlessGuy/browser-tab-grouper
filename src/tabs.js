@@ -329,10 +329,12 @@ const Tabs = {
   },
 
   /**
-   * @param {number} tabID
+   * @param {number|null} tabID
    * @returns {Promise<string|null>}
    */
   getGroup: async function(tabID) {
+    if (tabID == null) { return Promise.resolve(null); }
+
     return new Promise((resolve) => {
       // @ts-ignore
       browser.sessions.getTabValue(tabID, 'group').then((value) => resolve(value), () => resolve(null));
