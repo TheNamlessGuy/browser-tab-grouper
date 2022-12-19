@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Tab Grouper",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "Group tabs",
   "icons": {
     "48": "res/icons/48.png",
