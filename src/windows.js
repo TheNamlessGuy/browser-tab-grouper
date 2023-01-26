@@ -72,7 +72,7 @@ const Windows = {
       const tabs = await Windows.getAllTabsIn(window.id);
 
       for (const tab of tabs) {
-        await Tabs.removeGroup(tab.id);
+        await Tabs.removeGroup(await Tabs.getGroup(tab.id), tab.id);
         await browser.sessions.removeTabValue(tab.id, 'group-tab');
       }
     }

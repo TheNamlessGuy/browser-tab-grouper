@@ -61,7 +61,20 @@ function addTab(data) {
   const removeBtn = tab.getElementsByClassName('tab-remove')[0];
   removeBtn.addEventListener('click', () => respond({action: 'removeTab', tabID: data.id}));
 
+  tab.dataset.position = data.index.toString();
+
   container.appendChild(tab);
+}
+
+/**
+ * @returns {void}
+ */
+function sortTabs() {
+  const tabs = Array.from(document.getElementsByClassName('tab'));
+  tabs.sort((a, b) => parseInt(a.dataset.position) - parseInt(b.dataset.position));
+  for (const tab of tabs) {
+    tab.parentNode.appendChild(tab);
+  }
 }
 
 function clearErrors() {
@@ -111,6 +124,8 @@ const Actions = {
     for (const tab of msg.tabs) {
       addTab(tab);
     }
+
+    sortTabs();
   },
 
   /**
@@ -162,6 +177,17 @@ const Actions = {
   reopened: async function(msg) {
     document.getElementById('active-content').classList.add('hidden');
     document.getElementById('inactive-content').classList.remove('hidden');
+  },
+
+  sortTabs: async function(msg) {
+    for (const tab of msg.tabs) {
+      const elem = document.getElementById('tab--' + tab.id);
+      if (elem) {
+        elem.dataset.position = tab.index;
+      }
+    }
+
+    sortTabs();
   },
 }
 

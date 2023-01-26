@@ -104,7 +104,7 @@ const Tabs = {
   renameGroup: async function(oldName, newName, windowID) {
     const tabs = await Tabs.getGroupTabs(oldName, windowID, true);
     for (const tab of tabs) {
-      await Tabs.removeGroup(tab.id);
+      await Tabs.removeGroup(oldName, tab.id);
       await Tabs.setGroup(tab.id, newName);
 
       Tabs._cachedGroupTabs[tab.id] = newName;
@@ -177,7 +177,7 @@ const Tabs = {
     if (isGroupTab) {
       // Reopened a closed group tab
       await Tabs.unsetGroupTab(tab.id);
-      await Tabs.removeGroup(tab.id);
+      await Tabs.removeGroup(group, tab.id);
 
       // Tell the tab that its no longer a group tab
       await browser.tabs.executeScript(tab.id, {file: '/src/group-tab/inject.js'});
@@ -186,7 +186,7 @@ const Tabs = {
       port.disconnect();
     } else if (group) {
       // Reopened tab that was previously part of a group
-      await Tabs.removeGroup(tab.id);
+      await Tabs.removeGroup(group, tab.id);
     }
 
     await Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);
@@ -234,6 +234,7 @@ const Tabs = {
     } else if (group != null) {
       // Moved tab in group. Make sure it stays within the group
       await Tabs.moveTabIntoGroup(tabID, info.windowId, info.toIndex, group, info.windowId);
+      await Tabs.sendMessage_sortTabs(group, await Tabs.getGroupTabs(group, info.windowId));
     } else {
       // Moved non-grouped tab. Make sure it doesn't accidentally end up in the middle of a group
       await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, null);
@@ -318,14 +319,22 @@ const Tabs = {
   },
 
   /**
+   * @param {string} group
    * @param {number} tabID
    * @returns {Promise<void>}
    */
-  removeGroup: function(tabID) {
+  removeGroup: async function(group, tabID) {
     delete Tabs._cachedTabsInGroups[tabID];
-    return new Promise((resolve) => {
+    if (group != null && Tabs._cachedLastActiveTab[group] === tabID) {
+      Tabs._cachedLastActiveTab[group] = null;
+    }
+
+    await new Promise((resolve) => {
       browser.sessions.removeTabValue(tabID, 'group').then(() => resolve(), () => resolve());
     });
+
+    const tab = await Tabs.get(tabID);
+    Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);
   },
 
   /**
@@ -507,7 +516,7 @@ const Tabs = {
       if (data == null) { continue; }
 
       if (index >= data.min && index <= data.max) {
-        await Tabs.move(tabID, data.max + 1);
+        await Tabs.move(tabID, data.max);
         return true;
       }
     }
@@ -574,6 +583,14 @@ const Tabs = {
   sendMessage_errors: async function(group, errors) {
     await Tabs._sendMessage(group, {action: 'errors', errors: Array.isArray(errors) ? errors : [errors]});
   },
+
+  /**
+   * @param {string} group
+   * @param {browser.tabs.Tab[]} tabs
+   */
+  sendMessage_sortTabs: async function(group, tabs) {
+    await Tabs._sendMessage(group, {action: 'sortTabs', tabs: tabs});
+  }
   // END: Messaging
 };
 

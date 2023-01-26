@@ -20,7 +20,7 @@ const Groups = {
 
     const tabs = await Tabs.getGroupTabs(group, windowID);
     for (const tab of tabs) {
-      await Tabs.removeGroup(tab.id);
+      await Tabs.removeGroup(group, tab.id);
     }
 
     if (activeGroup === group) {
@@ -46,7 +46,7 @@ const Groups = {
       if (currentGroup === group) {
         return;
       } else {
-        await Groups.removeTab(group, tab.id);
+        await Groups.removeTab(currentGroup, tab.id);
       }
     }
 
@@ -62,7 +62,7 @@ const Groups = {
    * @param {number} tabID
    */
   removeTab: async function(group, tabID) {
-    await Tabs.removeGroup(tabID);
+    await Tabs.removeGroup(group, tabID);
     await Tabs.sendMessage_removeTab(group, tabID);
   },
 
