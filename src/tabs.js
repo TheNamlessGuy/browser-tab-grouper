@@ -332,6 +332,7 @@ const Tabs = {
     await new Promise((resolve) => {
       browser.sessions.removeTabValue(tabID, 'group').then(() => resolve(), () => resolve());
     });
+    await Tabs.show(tabID);
 
     const tab = await Tabs.get(tabID);
     Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);

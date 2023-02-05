@@ -1,8 +1,15 @@
 {
   "manifest_version": 2,
   "name": "Tab Grouper",
-  "version": "0.0.8",
-  "description": "Group tabs",
+  "version": "0.0.9",
+  "description": "Groups tabs",
+  "author": "TheNamlessGuy",
+  "homepage_url": "https://github.com/TheNamlessGuy/tab-grouper",
+  "developer": {
+    "name": "TheNamlessGuy",
+    "url": "https://github.com/TheNamlessGuy/tab-grouper"
+  },
+
   "icons": {
     "48": "res/icons/48.png",
     "32": "res/icons/32.png",
@@ -27,9 +34,13 @@
     ]
   },
 
+  "options_ui": {
+    "page": "options/index.html"
+  },
+
   "browser_specific_settings": {
     "gecko": {
-      "id": "tab-grouper@TheNamlessGuy.github.io"
+      "id": "tab-grouper-live@TheNamlessGuy.github.io"
     }
   }
 }
