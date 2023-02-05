@@ -214,7 +214,10 @@ const Tabs = {
    * @param {number} tabID
    * @param {{windowId: number, fromIndex: number, toIndex: number}} info
    */
+  _onMovedActive: {},
   _onMoved: async function(tabID, info) {
+    if (tabID in Tabs._onMovedActive) { return; }
+    Tabs._onMovedActive[tabID] = true;
     const group = await Tabs.getGroup(tabID);
     const isGroupTab = await Tabs.isGroupTab(tabID);
 
@@ -222,14 +225,18 @@ const Tabs = {
       // Moved group tab
       // 1. Make sure it's not in the middle of some other group
       // 2. Move all tabs belonging to it the same distance in the same direction
-      const moved = await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, group);
-      if (!moved) {
-        const offset = info.toIndex - info.fromIndex;
-        const tabs = await Tabs.getGroupTabs(group, info.windowId);
+      const newIndex = await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, group);
+      const offset = newIndex - info.fromIndex;
+      const tabs = await Tabs.getGroupTabs(group, info.windowId);
 
-        for (const tab of tabs) {
-          await Tabs.move(tab.id, tab.index + offset);
-        }
+      for (const _tab of tabs) {
+        const tab = await Tabs.get(_tab.id);
+        if (tab.id in Tabs._onMovedActive) { continue; }
+
+        Tabs._onMovedActive[tab.id] = true;
+        await Tabs.move(tab.id, tab.index + offset);
+
+        delete Tabs._onMovedActive[tab.id];
       }
     } else if (group != null) {
       // Moved tab in group. Make sure it stays within the group
@@ -239,6 +246,8 @@ const Tabs = {
       // Moved non-grouped tab. Make sure it doesn't accidentally end up in the middle of a group
       await Tabs.moveTabOutOfOtherGroups(tabID, info.windowId, info.toIndex, null);
     }
+
+    delete Tabs._onMovedActive[tabID];
   },
 
   /**
@@ -335,7 +344,9 @@ const Tabs = {
     await Tabs.show(tabID);
 
     const tab = await Tabs.get(tabID);
-    Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);
+    if (tab != null) {
+      Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);
+    }
   },
 
   /**
@@ -387,7 +398,23 @@ const Tabs = {
    * @returns {Promise<browser.tabs.Tab|null>}
    */
   get: async function(tabID) {
-    return await browser.tabs.get(tabID);
+    return new Promise((resolve) => {
+      browser.tabs.get(tabID).then((value) => resolve(value), () => resolve(null));
+    });
+  },
+
+  /**
+   * @param {number} tabID
+   * @returns {Promise<void>}
+   */
+  remove: async function(tabID) {
+    if (tabID in Tabs._cachedGroupTabs) { delete Tabs._cachedGroupTabs[tabID]; }
+    if (tabID in Tabs._cachedTabsInGroups) { delete Tabs._cachedTabsInGroups[tabID]; }
+
+    const group = await Tabs.getGroup(tabID);
+    if (group != null && group in Tabs._cachedLastActiveTab && Tabs._cachedLastActiveTab[group] === tabID) { delete Tabs._cachedLastActiveTab[group]; }
+
+    return await browser.tabs.remove(tabID);
   },
 
   /**
@@ -433,11 +460,11 @@ const Tabs = {
   },
 
   /**
-   * @param {number} tabIDs
+   * @param {number} tabID
    * @param {number} index
    */
-  move: async function(tabIDs, index) {
-    await browser.tabs.move(tabIDs, {index: index});
+  move: async function(tabID, index) {
+    await browser.tabs.move(tabID, {index: index});
   },
 
   /**
@@ -505,7 +532,7 @@ const Tabs = {
    * @param {number} windowID
    * @param {number} index
    * @param {string} except The group to ignore
-   * @returns {Promise<boolean>}
+   * @returns {Promise<number>}
    */
   moveTabOutOfOtherGroups: async function(tabID, windowID, index, except) {
     const groups = await Windows.getAllGroupsIn(windowID);
@@ -518,11 +545,11 @@ const Tabs = {
 
       if (index >= data.min && index <= data.max) {
         await Tabs.move(tabID, data.max);
-        return true;
+        return data.max;
       }
     }
 
-    return false;
+    return index;
   },
   // END: Movement
 

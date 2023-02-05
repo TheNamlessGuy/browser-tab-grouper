@@ -1,5 +1,7 @@
 const Menus = {
   _rootID: 'add-to-group',
+  _newGroupID: 'add-to-new-group',
+  _noActionsID: 'no-actions-available',
 
   _separatorID: 'add-to-group-separator',
   _separatorCreated: false,
@@ -32,10 +34,11 @@ const Menus = {
 
   /**
    * @param {string} group
+   * @param {'Add'|'Move'} group
    * @returns {string}
    */
-  _title: function(group) {
-    return 'Add/Move to group \'' + group + '\'';
+  _title: function(group, action) {
+    return `${action} to group '${group}'`;
   },
 
   /**
@@ -71,6 +74,51 @@ const Menus = {
     };
   },
 
+  /**
+   * @param {browser.menus.OnClickData & {contexts: browser.menus.ContextType[], menuIds: string[]}} info
+   * @param {browser.tabs.Tab} tab
+   */
+  _onShow: async function(info, tab) {
+    const group = await Tabs.getGroup(tab.id);
+    const isGroupTab = await Tabs.isGroupTab(tab.id);
+    const groups = await Groups.getAll();
+
+    if (group == null) {
+      // Is part of no group
+      await browser.menus.update(Menus._noActionsID, {visible: false});
+      await browser.menus.update(Menus._newGroupID, {visible: true});
+      await browser.menus.update(Menus._separatorID, {visible: groups.length > 0});
+
+      for (const g of groups) {
+        await Menus._showGroup(g, 'Add');
+      }
+    } else if (isGroupTab) {
+      // Is group tab
+      await browser.menus.update(Menus._noActionsID, {visible: true});
+      await browser.menus.update(Menus._newGroupID, {visible: false});
+      await browser.menus.update(Menus._separatorID, {visible: false});
+
+      for (const group of groups) {
+        await Menus._showGroup(group, false);
+      }
+    } else {
+      // Is part of group
+      await browser.menus.update(Menus._noActionsID, {visible: false});
+      await browser.menus.update(Menus._newGroupID, {visible: true});
+      await browser.menus.update(Menus._separatorID, {visible: groups.length > 1});
+
+      for (const g of groups) {
+        if (g === group) {
+          await Menus._showGroup(g, false);
+        } else {
+          await Menus._showGroup(g, 'Move');
+        }
+      }
+    }
+
+    await browser.menus.refresh();
+  },
+
   init: async function() {
     const groups = await Groups.getAll();
 
@@ -86,14 +134,38 @@ const Menus = {
     });
 
     browser.menus.create({
-      id: 'add-to-group-new',
+      id: Menus._newGroupID,
       parentId: Menus._rootID,
       title: 'Add to new group',
       onclick: Menus._onAddToNewGroup,
     });
 
+    browser.menus.create({
+      id: Menus._noActionsID,
+      parentId: Menus._rootID,
+      title: 'No actions available',
+      enabled: false,
+      visible: false,
+    });
+
     for (const group of groups) {
       Menus.addGroup(group);
+    }
+
+    if (!browser.menus.onShown.hasListener(Menus._onShow)) {
+      browser.menus.onShown.addListener(Menus._onShow);
+    }
+  },
+
+  /**
+   * @param {string} group
+   * @param {'Add'|'Move'|false} mode
+   */
+  _showGroup: async function(group, mode) {
+    if (mode === false) {
+      await browser.menus.update(Menus._id(group), {visible: false});
+    } else {
+      await browser.menus.update(Menus._id(group), {visible: true, title: Menus._title(group, mode)});
     }
   },
 
@@ -106,7 +178,7 @@ const Menus = {
     browser.menus.create({
       id: Menus._id(group),
       parentId: Menus._rootID,
-      title: Menus._title(group),
+      title: Menus._title(group, 'Add'),
       onclick: Menus._onAddToGroup(group),
     });
   },

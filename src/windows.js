@@ -67,14 +67,38 @@ const Windows = {
 
   reset: async function() {
     const windows = await Windows.getAll();
+    const groups = [];
 
     for (const window of windows) {
       const tabs = await Windows.getAllTabsIn(window.id);
 
       for (const tab of tabs) {
-        await Tabs.removeGroup(await Tabs.getGroup(tab.id), tab.id);
-        await browser.sessions.removeTabValue(tab.id, 'group-tab');
+        const group = await Tabs.getGroup(tab.id);
+        if (group == null) { continue; }
+
+        let found = false;
+        for (const g of groups) {
+          if (g.group === group && g.windowID === window.id) {
+            found = true;
+            break;
+          }
+        }
+
+        if (!found) {
+          groups.push({windowID: window.id, group: group});
+        }
+
+        const isGroupTab = await Tabs.isGroupTab(tab.id);
+        if (isGroupTab) {
+          await Tabs.remove(tab.id);
+        } else {
+          await Tabs.removeGroup(group, tab.id);
+        }
       }
+    }
+
+    for (const group of groups) {
+      await Groups.remove(group.group, group.windowID);
     }
   },
 };
