@@ -34,11 +34,12 @@ const Menus = {
 
   /**
    * @param {string} group
-   * @param {'Add'|'Move'} group
+   * @param {'Add'|'Move'|'Remove'} group
    * @returns {string}
    */
+  _titlePreposition: {'Remove': 'from', 'Add': 'to', 'Move': 'to'},
   _title: function(group, action) {
-    return `${action} to group '${group}'`;
+    return `${action} ${Menus._titlePreposition[action]} group '${group}'`;
   },
 
   /**
@@ -62,14 +63,21 @@ const Menus = {
 
   /**
    * @param {string} group
+   * @param {'Add'|'Move'|'Remove'} mode
    * @returns {(info: browser.menus.OnClickData, tab: browser.tabs.Tab) => Promise<void>}
    */
-  _onAddToGroup: function(group) {
+  _onClickOnGroup: function(group, mode) {
     return async (info, tab) => {
       const tabs = await Menus._getRelevantTabs(tab);
 
-      for (const tab of tabs) {
-        await Groups.addTab(group, tab);
+      if (mode === 'Remove') {
+        for (const tab of tabs) {
+          await Groups.removeTab(group, tab.id);
+        }
+      } else {
+        for (const tab of tabs) {
+          await Groups.addTab(group, tab);
+        }
       }
     };
   },
@@ -109,7 +117,7 @@ const Menus = {
 
       for (const g of groups) {
         if (g === group) {
-          await Menus._showGroup(g, false);
+          await Menus._showGroup(g, 'Remove');
         } else {
           await Menus._showGroup(g, 'Move');
         }
@@ -159,13 +167,17 @@ const Menus = {
 
   /**
    * @param {string} group
-   * @param {'Add'|'Move'|false} mode
+   * @param {'Add'|'Move'|'Remove'|false} mode
    */
   _showGroup: async function(group, mode) {
     if (mode === false) {
       await browser.menus.update(Menus._id(group), {visible: false});
     } else {
-      await browser.menus.update(Menus._id(group), {visible: true, title: Menus._title(group, mode)});
+      await browser.menus.update(Menus._id(group), {
+        visible: true,
+        title: Menus._title(group, mode),
+        onclick: Menus._onClickOnGroup(group, mode),
+      });
     }
   },
 
@@ -179,7 +191,7 @@ const Menus = {
       id: Menus._id(group),
       parentId: Menus._rootID,
       title: Menus._title(group, 'Add'),
-      onclick: Menus._onAddToGroup(group),
+      onclick: Menus._onClickOnGroup(group, 'Add'),
     });
   },
 
