@@ -73,6 +73,7 @@ const Menus = {
       if (mode === 'Remove') {
         for (const tab of tabs) {
           await Groups.removeTab(group, tab.id);
+          await Groups.collapseAllGroupsExceptCurrent(tab.windowId);
         }
       } else {
         for (const tab of tabs) {
