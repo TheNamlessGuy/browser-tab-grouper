@@ -131,6 +131,8 @@ const Tabs = {
         Tabs.activate(msg.tabID);
       } else if (msg.action === 'highlightTabs') {
         Tabs.highlightGroup(group, windowID);
+      } else if (msg.action === 'set-inherit-group') {
+        Tabs.setShouldInheritGroup(group, windowID, msg.value);
       } else if (msg.action === 'rename') {
         const oldName = group;
         const newName = msg.name.trim();
@@ -187,6 +189,12 @@ const Tabs = {
     } else if (group) {
       // Reopened tab that was previously part of a group
       await Tabs.removeGroup(group, tab.id);
+    } else if (tab.openerTabId != null) {
+      const openerGroup = await Tabs.getGroup(tab.openerTabId);
+      const shouldInherit = await Tabs.getShouldInheritGroup(openerGroup, tab.windowID);
+      if (openerGroup && shouldInherit) {
+        await Groups.addTab(openerGroup, tab);
+      }
     }
 
     await Tabs.moveTabOutOfOtherGroups(tab.id, tab.windowId, tab.index, null);
@@ -390,6 +398,23 @@ const Tabs = {
       browser.sessions.removeTabValue(tabID, 'group-tab').then(() => resolve(), () => resolve());
     });
   },
+
+  /**
+   * @param {number} tabID
+   * @param {boolean} value
+   */
+  setShouldInheritGroup: async function(group, windowID, value) {
+    const groupTab = await Tabs.getGroupTab(group, windowID);
+    await browser.sessions.setTabValue(groupTab.id, 'should-inherit-group', value);
+  },
+
+  getShouldInheritGroup: async function(group, windowID) {
+    const groupTab = await Tabs.getGroupTab(group, windowID);
+    if (groupTab == null) { return Promise.resolve(null); }
+    return new Promise((resolve) => {
+      browser.sessions.getTabValue(groupTab.id, 'should-inherit-group').then((value) => resolve(value ?? false), () => resolve(false));
+    });
+  },
   // END: Tags
 
   // START: Generics
@@ -503,6 +528,18 @@ const Tabs = {
   getCurrentGroup: async function(windowID) {
     return await Tabs.getGroup((await Tabs.getActive(windowID)).id);
   },
+
+  getGroupTab: async function(group, windowID) {
+    const tabs = await Windows.getAllTabsIn(windowID);
+    for (const tab of tabs) {
+      const tabGroup = await Tabs.getGroup(tab.id);
+      const isGroupTab = await Tabs.isGroupTab(tab.id);
+      if (group === tabGroup && isGroupTab) {
+        return tab;
+      }
+    }
+    return null;
+  },
   // END: Generics
 
   // START: Movement
@@ -570,7 +607,7 @@ const Tabs = {
    * @param {number} windowID
    */
   sendMessage_init: async function(group, tabs, windowID) {
-    await Tabs._sendMessage(group, {action: 'init', group: group, tabs: tabs, windowID: windowID});
+    await Tabs._sendMessage(group, {action: 'init', group: group, tabs: tabs, windowID: windowID, inheritGroup: await Tabs.getShouldInheritGroup(group, windowID)});
   },
 
   /**

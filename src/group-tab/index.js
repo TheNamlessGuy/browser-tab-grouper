@@ -109,7 +109,7 @@ const Actions = {
   },
 
   /**
-   * @param {{action: 'init', callback: (msg: Record<string, any>) => void, group: string, tabs: browser.tabs.Tab[]}} msg
+   * @param {{action: 'init', callback: (msg: Record<string, any>) => void, group: string, tabs: browser.tabs.Tab[], inheritGroup: boolean}} msg
    */
   init: function(msg) {
     setGroupName(msg.group);
@@ -120,6 +120,10 @@ const Actions = {
     save.addEventListener('click', () => respond({action: 'rename', name: document.getElementById('group-name-id').value}));
 
     document.getElementById('highlight-tabs').addEventListener('click', () => respond({action: 'highlightTabs'}));
+
+    const inheritGroup = document.getElementById('inherit-group');
+    inheritGroup.checked = msg.inheritGroup;
+    inheritGroup.addEventListener('change', () => respond({action: 'set-inherit-group', value: inheritGroup.checked}));
 
     for (const tab of msg.tabs) {
       addTab(tab);
