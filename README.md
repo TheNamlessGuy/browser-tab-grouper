@@ -9,7 +9,7 @@ Download the .xpi file from the latest [release](https://github.com/TheNamlessGu
 Drag and drop the file into your Firefox instance to install it.
 
 ### From Firefox AMO
-The download page is [here](https://addons.mozilla.org/firefox/addon/tab-grouper/)
+The download page is [here](https://addons.mozilla.org/firefox/addon/tab-grouper/).
 
 ## Usage
 After installing the plugin, you start by simply right clicking on a tab and selecting "Add to new group" from the Tab grouper interface:  
@@ -23,6 +23,10 @@ Clicking on the tabs listed in the group will get to you to that tab. Closing th
 Moving to a tab outside of the group will hide all the tabs within the group, aside from the group tab itself:  
 ![A gif showing that moving outside of the group tab will hide the tabs within the group](docs/images/group-tab-functionality.gif)
 
+The first time you move outside of a group, you will most likely get a popup like this:  
+![An image showing the hidden tabs warning Firefox gives off](docs/images/hidden-tabs-warning.png)  
+It's of course up to you, but I recommend pressing the "Keep tabs hidden" option, or this plugin won't work as intended.
+
 Adding another tab to the group is as simple as right clicking on it and selecting "Add to group <group name>":  
 ![An image showing what the context menu options for adding a tab to an existing group looks like](docs/images/add-to-existing-group.png)
 
@@ -34,4 +38,4 @@ There are a few more options, such as:
 * Keeping tabs opened from within the group within the group
 
 ## Future plans and known issues
-See [this issue](https://github.com/TheNamlessGuy/browser-tab-grouper/issues/1)
+See [this issue](https://github.com/TheNamlessGuy/browser-tab-grouper/issues/1).
