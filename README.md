@@ -34,4 +34,4 @@ There are a few more options, such as:
 * Keeping tabs opened from within the group within the group
 
 ## Future plans and known issues
-See [this issue](issues/1)
+See [this issue](https://github.com/TheNamlessGuy/browser-tab-grouper/issues/1)
