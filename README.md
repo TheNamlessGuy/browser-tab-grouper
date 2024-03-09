@@ -16,12 +16,11 @@ After installing the plugin, you start by simply right clicking on a tab and sel
 ![An image showing what the context menu options for adding a new group looks like](docs/images/add-to-new-group.png)
 
 This will open a "group tab":  
-![The contents of a group tab](docs/images/tab-in-group.png)  
-(Note that the layout of this tab is being reworked currently)
+![The contents of a group tab](docs/images/group-tab.png)
 
 Clicking on the tabs listed in the group will get to you to that tab. Closing the group tab itself will get rid of the group entirely.  
 Moving to a tab outside of the group will hide all the tabs within the group, aside from the group tab itself:  
-![A gif showing that moving outside of the group tab will hide the tabs within the group](docs/images/group-tab-functionality.gif)
+![A gif showing that moving outside of the group tab will hide the tabs within the group](docs/images/tab-grouping-functionality.gif)
 
 The first time you move outside of a group, you will most likely get a popup like this:  
 ![An image showing the hidden tabs warning Firefox gives off](docs/images/hidden-tabs-warning.png)  
@@ -34,8 +33,8 @@ Similarly, you can remove a tab from a group (or move it to another group) by ri
 ![An image showing what the context menu options for removing and moving a tab from groups looks like](docs/images/remove-and-move-group-options.png)
 
 There are a few more options, such as:
-* Renaming a group
-* Keeping tabs opened from within the group within the group
+* Renaming a group - Just edit the name on the group tab page
+* Tabs opened from within the group should be kept in the group - Check the checkbox on the group tab page
 
 ## Future plans and known issues
 See [this issue](https://github.com/TheNamlessGuy/browser-tab-grouper/issues/1).
