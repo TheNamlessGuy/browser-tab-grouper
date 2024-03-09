@@ -1,7 +1,11 @@
+/** BrowserWindow
+ * @typedef {object} BrowserWindow https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/windows/Window
+ * @property {number} id
+ */
+
 const Windows = {
-  // START: Generics
   /**
-   * @returns {Promise<browser.windows.Window[]>}
+   * @returns {Promise<BrowserWindow[]>}
    */
   getAll: async function() {
     return await browser.windows.getAll();
@@ -9,7 +13,7 @@ const Windows = {
 
   /**
    * @param {number} windowID
-   * @returns {Promise<browser.tabs.Tab[]>}
+   * @returns {Promise<BrowserTab[]>}
    */
   getAllTabsIn: async function(windowID) {
     return await browser.tabs.query({windowId: windowID});
@@ -20,11 +24,11 @@ const Windows = {
    * @returns {Promise<string[]>}
    */
   getAllGroupsIn: async function(windowID) {
-    const tabs = await Windows.getAllTabsIn(windowID);
-
     const retval = [];
+
+    const tabs = await Windows.getAllTabsIn(windowID);
     for (const tab of tabs) {
-      const group = await Tabs.getGroup(tab.id);
+      const group = await Tabs.value.get.group(tab.id);
       if (group != null && !retval.includes(group)) {
         retval.push(group);
       }
@@ -34,78 +38,40 @@ const Windows = {
   },
 
   /**
-   * @param {number} tabID
    * @param {number} windowID
-   * @param {number} index
-   * @returns {Promise<browser.tabs.Tab>}
+   * @returns {string|null}
    */
-  moveTabTo: async function(tabID, windowID, index) {
-    // @ts-ignore
-    return await browser.tabs.move(tabID, {windowId: windowID, index: index});
+  getCurrentGroupIn: async function(windowID) {
+    const tab = (await browser.tabs.query({windowId: windowID, active: true}))[0];
+    return await Tabs.value.get.group(tab.id);
   },
-  // END: Generics
 
   /**
+   * Returns the ID of the window the group tab is in. If there is no group tab (uh oh!), return a window with at least one regular grouped tab in it (if any).
+   *
    * @param {string} group
    * @returns {Promise<number|null>}
    */
   getIDForGroup: async function(group) {
+    let backup = null;
+
     const windows = await Windows.getAll();
     for (const window of windows) {
       const tabs = await Windows.getAllTabsIn(window.id);
       for (const tab of tabs) {
-        const tabGroup = await Tabs.getGroup(tab.id);
-        const isGroupTab = await Tabs.isGroupTab(tab.id);
-        if (isGroupTab && tabGroup === group) {
-          return window.id;
-        }
-      }
-    }
+        const tabGroup = await Tabs.value.get.group(tab.id);
+        const isGroupTab = await Tabs.value.get.isGroupTab(tab.id);
 
-    return null;
-  },
-
-  reset: async function() {
-    const windows = await Windows.getAll();
-    const groups = [];
-
-    for (const window of windows) {
-      const tabs = await Windows.getAllTabsIn(window.id);
-
-      for (const tab of tabs) {
-        const group = await Tabs.getGroup(tab.id);
-        if (group == null) { continue; }
-
-        let found = false;
-        for (const g of groups) {
-          if (g.group === group && g.windowID === window.id) {
-            found = true;
-            break;
+        if (tabGroup === group) {
+          if (isGroupTab) {
+            return window.id;
           }
-        }
 
-        if (!found) {
-          groups.push({windowID: window.id, group: group});
-        }
-
-        const isGroupTab = await Tabs.isGroupTab(tab.id);
-        if (isGroupTab) {
-          await Tabs.remove(tab.id);
-        } else {
-          await Tabs.removeGroup(group, tab.id);
+          backup = window.id;
         }
       }
     }
 
-    for (const group of groups) {
-      await Groups.remove(group.group, group.windowID);
-    }
+    return backup;
   },
 };
-
-/**
- * @returns {typeof Windows}
- */
-function getWindows() {
-  return Windows;
-}

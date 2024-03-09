@@ -1,13 +1,13 @@
 {
   "manifest_version": 2,
   "name": "Tab Grouper",
-  "version": "0.0.13",
+  "version": "0.1.0",
   "description": "Groups tabs",
   "author": "TheNamlessGuy",
-  "homepage_url": "https://github.com/TheNamlessGuy/tab-grouper",
+  "homepage_url": "https://github.com/TheNamlessGuy/browser-tab-grouper",
   "developer": {
     "name": "TheNamlessGuy",
-    "url": "https://github.com/TheNamlessGuy/tab-grouper"
+    "url": "https://github.com/TheNamlessGuy/browser-tab-grouper"
   },
 
   "icons": {
@@ -25,17 +25,14 @@
 
   "background": {
     "scripts": [
+      "src/communication.js",
       "src/menus.js",
-      "src/groups.js",
       "src/tabs.js",
+      "src/groups.js",
       "src/windows.js",
 
       "src/background.js"
     ]
-  },
-
-  "options_ui": {
-    "page": "src/options/index.html"
   },
 
   "browser_specific_settings": {

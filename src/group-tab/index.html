@@ -1,40 +1,46 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Group</title>
+    <meta charset="utf-8"/>
+    <title>Tab Grouper</title>
     <link id="page-icon" rel="shortcut icon" href="/res/icons/48.png">
-    <link type="text/css" rel="stylesheet" href="/src/group-tab/index.css">
-    <script src="/src/group-tab/index.js"></script>
+    <link type="text/css" rel="stylesheet" href="index.css">
+    <script src="custom-elements/error.js"></script>
+    <script src="custom-elements/labeled-checkbox.js"></script>
+    <script src="custom-elements/tab.js"></script>
+    <script src="index.js"></script>
   </head>
+  <body class="theme-dark">
+    <div id="error-container"></div>
+    <div id="content-container">
+      <div id="active-content">
+        <div id="name-input-container">
+          <input id="name-input" placeholder="Group name">
+        </div>
 
-  <template id="tab-template">
-    <div class="tab">
-      <img class="tab-icon"></img>
-      <span class="tab-title" title="Swap to this tab"></span>
-      <span class="tab-remove" title="Remove this tab from this group">X</span>
-    </div>
-  </template>
+        <fieldset>
+          <legend>Options</legend>
 
-  <template id="error-template">
-    <div class="error">
-      * <span class="error-msg"></span>
-    </div>
-  </template>
+          <labeled-checkbox id="should-keep-opened-tabs">Tabs opened from within the group should be kept in the group</labeled-checkbox>
+        </fieldset>
 
-  <body>
-    <div id="active-content">
-      <div id="errors" class="hidden"></div>
-      Group name: <input id="group-name-id" type="text" placeholder="If you're seeing this, you're a fast clicker (or something went wrong)">
-      <button id="group-name-save">Save</button>
-      <br>
-      Tabs: <button id="highlight-tabs">Highlight tabs in this group</button>
-      <br>
-      Keep tabs opened from within the group in the group: <input type="checkbox" id="inherit-group">
-      <div id="tabs-container"></div>
-    </div>
+        <fieldset>
+          <legend>Actions</legend>
 
-    <div id="inactive-content" class="hidden">
-      This tab is no longer part of any group. Create a new group if you want to recreate the group that this tab used to belong to.
+          <div><button id="highlight-btn">Highlight tabs in group</button></div>
+        </fieldset>
+
+        <fieldset id="tab-fieldset">
+          <legend>Tabs</legend>
+
+          <div id="tab-container"></div>
+        </fieldset>
+      </div>
+
+      <div id="inactive-content">
+        <p>This tab is no longer associated with an active group, and is therefore safe to remove.</p>
+        <p>If you want to recreate this tab group, you'll have to start over again.</p>
+      </div>
     </div>
   </body>
 </html>

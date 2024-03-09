@@ -1,43 +1,125 @@
-body {
-  background-color: #000;
-  color: #FFF;
+.hidden { display: none !important; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  background-color: var(--background-color);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
-.hidden {
-  display: none;
+:root {
+  --content-container-min-height: 50vh;
+  --content-container-width: 65vw;
 }
 
-#tabs-container {
-  width: fit-content;
+body.theme-dark {
+  --background-color: #000033;
+  --foreground-color: #6666FF;
+  --border-color: #333399;
+  --text-color: #CCCCCC;
+  --error-color: #CC3300;
+
+  --button-border-color: var(--border-color);
+  --button-red-border-color: #CC0000;
+
+  --button-hovered-border-color: #3333FF;
+  --button-red-hovered-border-color: #FF3300;
+  --button-hovered-text-color: #FFFFFF;
+  --button-red-hovered-text-color: var(--button-hovered-text-color);
+
+  --button-active-border-color: #333333;
+  --button-red-active-border-color: #CC0033;
+  --button-active-text-color: #AAAAAA;
+  --button-red-active-text-color: var(--button-active-text-color);
 }
 
-.tab {
-  border: 1px solid #FFF;
-  padding: 2px;
+#error-container {
+  position: absolute;
+  top: 0px;
+  margin: 5px;
+  z-index: 9001; /* hehe */
+}
+
+#content-container {
+  width: var(--content-container-width);
+  min-height: var(--content-container-min-height);
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  color: var(--text-color);
+  font-family: serif;
+}
+
+#active-content,
+#inactive-content {
+  display: flex;
+  flex-direction: column;
   width: 100%;
-  user-select: none;
+  height: 100%;
+  min-height: var(--content-container-min-height);
+}
+#inactive-content {
+  justify-content: center;
+  align-items: center;
+  font-size: 135%;
 }
 
-.tab > .tab-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 5px;
+#name-input-container {
+  display: flex;
+  justify-content: space-around;
+  padding-top: 15px;
 }
 
-.tab > .tab-title {
-  cursor: pointer;
-}
-
-.tab > .tab-remove {
-  background-color: #F00;
-  cursor: pointer;
-}
-
-#errors {
-  margin: 5px 0;
-  background-color: #F00;
-}
-
-.error {
+input {
+  border: 1px solid var(--border-color);
+  border-radius: 5px;
+  background-color: var(--background-color);
+  outline: none;
+  color: inherit;
+  text-align: center;
+  font-family: monospace;
   padding: 5px;
 }
+input#name-input { font-size: 250%; }
+
+fieldset {
+  margin: 0 15px;
+  border: 2px solid var(--border-color);
+  border-radius: 5px;
+}
+fieldset > legend { font-size: 120%; }
+
+#tab-fieldset {
+  flex-grow: 1;
+  margin-bottom: 15px;
+}
+
+button {
+  border: 1px solid var(--button-border-color);
+  border-radius: 5px;
+  color: inherit;
+  background-color: var(--background-color);
+  cursor: pointer;
+}
+button:hover {
+  border-color: var(--button-hovered-border-color);
+  color: var(--button-hovered-text-color);
+}
+button:active {
+  border-color: var(--button-active-border-color);
+  color: var(--button-active-text-color);
+}
+button.red { border-color: var(--button-red-border-color); }
+button.red:hover {
+  border-color: var(--button-red-hovered-border-color);
+  color: var(--button-red-hovered-text-color);
+}
+button.red:active {
+  border-color: var(--button-red-active-border-color);
+  color: var(--button-red-active-text-color);
+}
+
+c-tab::part(body) { border-bottom: 1px solid var(--border-color); }
+c-tab:last-child::part(body) { border-bottom: none; }
