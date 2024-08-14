@@ -198,6 +198,7 @@ const Tabs = {
       group: 'group',
       isGroupTab: 'group-tab',
       shouldKeepOpenedTabs: 'should-inherit-group',
+      iconColor: 'icon-color',
     },
 
     get: {
@@ -223,6 +224,14 @@ const Tabs = {
        */
       shouldKeepOpenedTabs: async function(tabID) {
         return Tabs.value.get._value(tabID, Tabs.value.keys.shouldKeepOpenedTabs, false);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<string|null>}
+       */
+      iconColor: async function(tabID) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.iconColor);
       },
 
       /**
@@ -269,12 +278,79 @@ const Tabs = {
 
       /**
        * @param {number} tabID
+       * @param {string} value
+       * @returns {Promise<void>}
+       */
+      iconColor: async function(tabID, value) {
+        await Tabs.value.set._value(tabID, Tabs.value.keys.iconColor, value);
+      },
+
+      /**
+       * @param {number} tabID
        * @param {string} key
        * @param {*} value
        * @returns {Promise<void>}
        */
       _value: async function(tabID, key, value) {
         await browser.sessions.setTabValue(tabID, key, value);
+      },
+    },
+
+    initialize: {
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {string} group
+       * @returns {Promise<void>}
+       */
+      group: async function(tabID, group) {
+        const currentValue = await Tabs.value.get.group(tabID);
+        if (currentValue == null) {
+          await Tabs.value.set.group(tabID, group);
+        }
+      },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {true} value
+       * @returns {Promise<void>}
+       */
+      isGroupTab: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.isGroupTab(tabID);
+        if (!currentValue) {
+          await Tabs.value.set.isGroupTab(tabID, value);
+        }
+      },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {true} value
+       * @returns {Promise<void>}
+       */
+      shouldKeepOpenedTabs: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.shouldKeepOpenedTabs(tabID);
+        if (!currentValue) {
+          await Tabs.value.set.shouldKeepOpenedTabs(tabID, value);
+        }
+      },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {string} value
+       * @returns {Promise<void>}
+       */
+      iconColor: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.iconColor(tabID);
+        if (!currentValue) {
+          await Tabs.value.set.iconColor(tabID, value);
+        }
       },
     },
 
@@ -287,6 +363,7 @@ const Tabs = {
         await Tabs.value.remove.group(tabID);
         await Tabs.value.remove.isGroupTab(tabID);
         await Tabs.value.remove.shouldKeepOpenedTabs(tabID);
+        await Tabs.value.remove.iconColor(tabID);
       },
 
       /**
@@ -312,6 +389,14 @@ const Tabs = {
        */
       shouldKeepOpenedTabs: async function(tabID) {
         await Tabs.value.remove._value(tabID, Tabs.value.keys.shouldKeepOpenedTabs);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<void>}
+       */
+      iconColor: async function(tabID) {
+        await Tabs.value.remove._value(tabID, Tabs.value.keys.iconColor);
       },
 
       /**
@@ -366,11 +451,24 @@ const Tabs = {
       let windowID = tab.windowId;
 
       if (isGroupTab) { // Reopened a closed group tab
-        await Groups.groupTab.deinit(tab.id);
-        await browser.tabs.update(tab.id, {url: '/src/group-tab/index.html', loadReplace: true}); // Remove the ?group parameter, which should signal to the tab that it isn't active anymore
-      } else if (group) {
-        await Tabs.value.remove.all(tab.id);
-      } else if (tab.openerTabId != null) {
+        const otherGroupTab = await Groups.groupTab.get(group, null, tab.id);
+        const tabsInGroup = await Tabs.getTabsInGroup(group, windowID, false);
+        if (otherGroupTab != null || tabsInGroup.length === 0) { // There is a new group with the same name as the restored tab - deinit this one
+          await Groups.groupTab.deinit(tab.id);
+          await browser.tabs.update(tab.id, {url: '/src/group-tab/index.html', loadReplace: true}); // Remove the ?group parameter, which should signal to the tab that it isn't active anymore
+        } else { // We can safely restore this tab group
+          await Groups.groupTab.init(tab.id, group, windowID);
+          await Groups.collapse.allExceptCurrent(windowID);
+        }
+      } else if (group) { // Reopened a tab that used to be grouped
+        const groupTab = await Groups.groupTab.get(group);
+        if (groupTab != null && groupTab.windowId === windowID) { // The group still exists in the proper window
+          await Groups.collapse.allExceptCurrent(windowID);
+          await Groups.groupTab.update(group, windowID, groupTab.id);
+        } else { // Group is either gone, or in another window
+          await Tabs.value.remove.all(tab.id);
+        }
+      } else if (tab.openerTabId != null) { // Opened a new tab from another tab
         const openerGroup = await Tabs.value.get.group(tab.openerTabId);
         if (openerGroup != null) {
           const groupTab = await Groups.groupTab.get(openerGroup);
@@ -422,8 +520,6 @@ const Tabs = {
 
       if (wasGroupTabOf != null) { // A group tab was moved to a new window, recreate the group
         const oldWindowID = await Windows.getIDForGroup(group);
-        await Tabs.value.set.group(tabID, group);
-        await Tabs.value.set.isGroupTab(tabID, true);
         await Groups.groupTab.init(tabID, group, oldWindowID);
 
         const tabs = await Tabs.getTabsInGroup(group, oldWindowID);

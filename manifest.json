@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Tab Grouper",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Groups tabs",
   "author": "TheNamlessGuy",
   "homepage_url": "https://github.com/TheNamlessGuy/browser-tab-grouper",
@@ -25,6 +25,7 @@
 
   "background": {
     "scripts": [
+      "src/runtime.js",
       "src/communication.js",
       "src/menus.js",
       "src/tabs.js",

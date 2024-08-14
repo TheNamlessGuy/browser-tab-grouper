@@ -1,6 +1,19 @@
+/** BrowserPort
+ * @typedef {object} BrowserPort
+ * @property {string} name
+ * @property {(Object) => void} postMessage
+ * @property {BrowserPortOnMessage} onMessage
+ */
+
+/** BrowserPortOnMessage
+ * @typedef {object} BrowserPortOnMessage
+ * @property {(callback: (msg: any) => void)} addListener
+ */
+
 /** GroupTabOpts
  * @typedef {object} GroupTabOpts
  * @property {boolean} shouldKeepOpenedTabs
+ * @property {string|null} iconColor
  */
 
 /** InitMessage
@@ -39,7 +52,15 @@
  * @property {string[]} errors
  */
 
+/** SetIconColorMessage
+ * @typedef {object} SetIconColorMessage
+ * @property {string} hex
+ */
+
 const Communication = {
+  /**
+   * @type {Object.<string, BrowserPort>}
+   */
   _ports: {},
 
   /**
@@ -175,6 +196,15 @@ const Communication = {
           await Communication.send.errors(group, errors);
           await Communication.send.renameGroup(group, group); // Reset the name
         }
+      },
+
+      /**
+       * @param {string} group
+       * @param {SetIconColorMessage} msg
+       */
+      'set-icon-color': async function(group, msg) {
+        const groupTab = await Groups.groupTab.get(group);
+        await Tabs.value.set.iconColor(groupTab.id, msg.hex);
       },
 
       /**

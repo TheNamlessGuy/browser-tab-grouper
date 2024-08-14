@@ -1,4 +1,7 @@
 const BackgroundPage = {
+  /**
+   * @type {BrowserPort|null}
+   */
   _port: null,
 
   /**
@@ -26,6 +29,14 @@ const BackgroundPage = {
      */
     rename: function(newName) {
       BackgroundPage.send.action('rename-group', {newName});
+    },
+
+    /**
+     * @param {string} hex
+     * @returns {void}
+     */
+    setIconColor: function(hex) {
+      BackgroundPage.send.action('set-icon-color', {hex});
     },
 
     /**
@@ -247,6 +258,8 @@ const Actions = {
     for (const tab of msg.tabs) {
       Tabs.add(tab);
     }
+
+    Icon.setColor(msg.opts.iconColor, false);
   },
 
   /**
@@ -290,7 +303,85 @@ const Actions = {
   },
 };
 
+const Icon = {
+  /**
+   * @returns {void}
+   */
+  init: function() {
+    const picker = document.getElementById('tab-icon-color');
+    picker.addEventListener('change', () => {
+      Icon.setColor(picker.value.substring(1), true); // Remove preceeding #
+    });
+  },
+
+  /**
+   * @param {string} hex
+   * @param {boolean} push
+   * @returns {void}
+   */
+  setColor: function(hex, push) {
+    hex = hex ?? 'FFFFFF';
+    document.getElementById('tab-icon-color').value = `#${hex}`;
+
+    Icon.tint(hex);
+    if (push) {
+      BackgroundPage.send.setIconColor(hex);
+    }
+  },
+
+  /**
+   * @param {string|null} hex A hexadecimal value without the leading #
+   * @returns {void}
+   */
+  tint: function(hex) {
+    const color = Icon._hexToRGB(hex);
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+    const g = canvas.getContext('2d');
+
+    const img = new Image();
+    img.onload = function() {
+      g.drawImage(img, 0, 0);
+
+      const data = g.getImageData(0, 0, 16, 16);
+      for (let i = 0; i < data.data.length; i += 4) {
+        if (
+          data.data[i + 0] === 255 && // r
+          data.data[i + 1] === 255 && // g
+          data.data[i + 2] === 255    // b
+        ) {
+          data.data[i + 0] = color.r;
+          data.data[i + 1] = color.g;
+          data.data[i + 2] = color.b;
+        }
+      }
+
+      g.putImageData(data, 0, 0);
+      document.getElementById('page-icon').href = canvas.toDataURL();
+    }
+    img.src = '/res/icons/16.png';
+  },
+
+  /**
+   * Thanks stack overflow :)
+   * https://stackoverflow.com/a/11508164
+   *
+   * @param {string} hex
+   * @returns {{r: number, g: number, b: number}}
+   */
+  _hexToRGB(hex) {
+    let bigint = parseInt(hex, 16);
+    return {
+      r: (bigint >> 16) & 255,
+      g: (bigint >> 8) & 255,
+      b: bigint & 255,
+    };
+  }
+};
+
 function initialize() {
+  Icon.init();
   Group.set(Group.get(), false, true);
   BackgroundPage.init();
 

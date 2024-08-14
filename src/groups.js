@@ -29,12 +29,13 @@ const Groups = {
   },
 
   /**
+   * @param {boolean|null} incognito When true, only return groups that are in incognito mode. When false, return groups that aren't incognito. When null, return all groups regardless
    * @returns {Promise<string[]>}
    */
-  getAll: async function() {
+  getAll: async function(incognito = null) {
     const retval = [];
 
-    const windows = await Windows.getAll();
+    const windows = await Windows.getAll(incognito);
     for (const window of windows) {
       // Since group names are unique, and Windows.getAllGroupsIn returns a unique list, we don't need to do uniqueness checks here
       retval.push(...(await Windows.getAllGroupsIn(window.id)));
@@ -243,22 +244,18 @@ const Groups = {
      * @param {string} group
      * @param {number} windowID
      * @param {number} index
+     * @param {boolean} active
      * @returns {Promise<BrowserTab>}
      */
-    create: async function(group, windowID, index) {
+    create: async function(group, windowID, index, active = true) {
       const tab = await browser.tabs.create({
         url: `/src/group-tab/index.html?group=${encodeURIComponent(group)}`,
         index: index,
-        active: true,
+        active: active,
         windowId: windowID,
       });
 
-      await Tabs.value.set.group(tab.id, group);
-      await Tabs.value.set.isGroupTab(tab.id, true);
-      await Tabs.value.set.shouldKeepOpenedTabs(tab.id, false);
-
       await Groups.groupTab.init(tab.id, group, tab.windowId);
-
       return tab;
     },
 
@@ -271,10 +268,23 @@ const Groups = {
     init: async function(tabID, group, windowID) {
       Groups.groupTab.cache[tabID] = group;
 
+      await Tabs.value.initialize.group(tabID, group);
+      await Tabs.value.initialize.isGroupTab(tabID, true);
+      await Tabs.value.initialize.shouldKeepOpenedTabs(tabID, false);
+      await Tabs.value.initialize.iconColor(tabID, 'FFFFFF');
+
+      await Groups.groupTab.update(group, windowID, tabID);
+    },
+
+    update: async function(group, windowID = null, tabID = null) {
+      windowID = windowID ?? await Windows.getIDForGroup(group);
+      tabID = tabID ?? (await Groups.groupTab.get(group, windowID)).id;
+
       Communication.send.init(group, {
         tabs: await Tabs.getTabsInGroup(group, windowID),
         opts: {
           shouldKeepOpenedTabs: await Tabs.value.get.shouldKeepOpenedTabs(tabID),
+          iconColor: await Tabs.value.get.iconColor(tabID),
         },
       });
     },
@@ -282,18 +292,16 @@ const Groups = {
     /**
      * @param {string} group
      * @param {number|null} windowID
+     * @param {number|null} except
      * @returns {Promise<BrowserTab|null>}
      */
-    get: async function(group, windowID = null) {
-      const cached = Object.keys(Groups.groupTab.cache).find((key) => Groups.groupTab.cache[key] === group);
-      if (cached != null) {
-        return await Tabs.get(parseInt(cached, 10));
-      }
-
-      windowID = windowID ?? await Windows.getIDForGroup(group);
+    get: async function(group, windowID = null, except = null) {
+      windowID = windowID ?? await Windows.getIDForGroup(group, except);
 
       const tabs = await Windows.getAllTabsIn(windowID);
       for (const tab of tabs) {
+        if (except != null && tab.id === except) { continue; }
+
         const tabGroup = await Tabs.value.get.group(tab.id);
         const isGroupTab = await Tabs.value.get.isGroupTab(tab.id);
         if (isGroupTab && tabGroup === group) {

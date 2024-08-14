@@ -142,7 +142,8 @@ const Menus = {
     show: async function(info, tab) {
       const group = await Tabs.value.get.group(tab.id);
       const isGroupTab = await Tabs.value.get.isGroupTab(tab.id);
-      const groups = await Groups.getAll();
+      const groups = await Groups.getAll(tab.incognito);
+      const otherGroups = await Groups.getAll(!tab.incognito);
 
       if (group == null) { // The clicked tab isn't part of any group
         await browser.menus.update(Menus._ids.noActionsAvailable, {visible: false});
@@ -152,6 +153,10 @@ const Menus = {
 
         for (const g of groups) {
           await Menus._showGroup(g, 'Add');
+        }
+
+        for (const g of otherGroups) {
+          await Menus._showGroup(g, false);
         }
       } else if (isGroupTab) { // The clicked tab is a group tab
         await browser.menus.update(Menus._ids.root, {visible: false});
@@ -167,6 +172,10 @@ const Menus = {
           } else {
             await Menus._showGroup(g, 'Move');
           }
+        }
+
+        for (const g of otherGroups) {
+          await Menus._showGroup(g, false);
         }
       }
 
