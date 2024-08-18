@@ -38,8 +38,11 @@ const Runtime = {
 
         // The group has no group tab, create a new one
         Communication.removeGroup(group); // If there is a cached port for the group tab, don't use it
-        const {min, max} = await Tabs.getGroupIndexSpan(group, window.id, false);
-        await Groups.groupTab.create(group, window.id, min, false);
+        const span = await Tabs.getGroupIndexSpan(group, window.id, false);
+        if (span != null) {
+          await Groups.groupTab.create(group, window.id, span.min, false);
+          await Communication.send.errors(group, ['Group tab had to be restored, some settings may have been lost. If you see this error, please leave a comment <a href="https://github.com/TheNamlessGuy/browser-tab-grouper/issues/4">here</a>']);
+        }
       }
 
       await Groups.collapse.allExceptCurrent(window.id);

@@ -32,14 +32,17 @@ button {
 
     const xButton = document.createElement('button');
     xButton.innerText = '⨯';
-    xButton.addEventListener('click', () => this.remove());
+    xButton.addEventListener('click', () => {
+      this.remove();
+      this.dispatchEvent(new Event('removed'));
+    });
     container.append(xButton);
 
     this.attachShadow({mode: 'closed'}).append(style, container);
   }
 
   set message(msg) {
-    this._message.innerText = msg;
+    this._message.innerHTML = msg;
   }
 }
 

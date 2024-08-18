@@ -199,6 +199,7 @@ const Tabs = {
       isGroupTab: 'group-tab',
       shouldKeepOpenedTabs: 'should-inherit-group',
       iconColor: 'icon-color',
+      customIconURL: 'custom-icon-url',
     },
 
     get: {
@@ -232,6 +233,14 @@ const Tabs = {
        */
       iconColor: async function(tabID) {
         return Tabs.value.get._value(tabID, Tabs.value.keys.iconColor);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<string|null>}
+       */
+      customIconURL: async function(tabID) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.customIconURL);
       },
 
       /**
@@ -283,6 +292,15 @@ const Tabs = {
        */
       iconColor: async function(tabID, value) {
         await Tabs.value.set._value(tabID, Tabs.value.keys.iconColor, value);
+      },
+
+      /**
+       * @param {number} tabID
+       * @param {string} value
+       * @returns {Promise<void>}
+       */
+      customIconURL: async function(tabID, value) {
+        await Tabs.value.set._value(tabID, Tabs.value.keys.customIconURL, value);
       },
 
       /**
@@ -352,6 +370,20 @@ const Tabs = {
           await Tabs.value.set.iconColor(tabID, value);
         }
       },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {string} value
+       * @returns {Promise<void>}
+       */
+      customIconURL: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.customIconURL(tabID);
+        if (!currentValue) {
+          await Tabs.value.set.customIconURL(tabID, value);
+        }
+      },
     },
 
     remove: {
@@ -364,6 +396,7 @@ const Tabs = {
         await Tabs.value.remove.isGroupTab(tabID);
         await Tabs.value.remove.shouldKeepOpenedTabs(tabID);
         await Tabs.value.remove.iconColor(tabID);
+        await Tabs.value.remove.customIconURL(tabID);
       },
 
       /**
@@ -397,6 +430,14 @@ const Tabs = {
        */
       iconColor: async function(tabID) {
         await Tabs.value.remove._value(tabID, Tabs.value.keys.iconColor);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<void>}
+       */
+      customIconURL: async function(tabID) {
+        await Tabs.value.remove._value(tabID, Tabs.value.keys.customIconURL);
       },
 
       /**

@@ -69,6 +69,14 @@ const BackgroundPage = {
     swapToTab: function(tabID) {
       BackgroundPage.send.action('swap-to-tab', {tabID});
     },
+
+    /**
+     * @param {string} dataURL
+     * @returns {void}
+     */
+    setCustomIcon: function(dataURL) {
+      BackgroundPage.send.action('set-custom-icon', {dataURL});
+    },
   },
 
   _on: {
@@ -91,16 +99,28 @@ const Errors = {
     while (container.children.length > 0) {
       container.children[0].remove();
     }
+
+    Icon.update();
   },
 
   /**
    * @param {string} error
+   * @param {boolean} updateIcon
    * @returns {void}
    */
-  add: function(error) {
+  add: function(error, updateIcon = true) {
     const element = document.createElement('c-error');
     element.message = error;
+    element.addEventListener('removed', function() {
+      if (Errors.count() === 0) {
+        Icon.update();
+      }
+    });
     document.getElementById('error-container').append(element);
+
+    if (updateIcon) {
+      Icon.update();
+    }
   },
 
   /**
@@ -109,9 +129,18 @@ const Errors = {
    */
   addAll: function(errors) {
     for (const error of errors) {
-      Errors.add(error);
+      Errors.add(error, false);
     }
-  }
+
+    Icon.update();
+  },
+
+  /**
+   * @returns {number}
+   */
+  count: function() {
+    return document.getElementById('error-container').children.length;
+  },
 };
 
 const Group = {
@@ -259,7 +288,9 @@ const Actions = {
       Tabs.add(tab);
     }
 
-    Icon.setColor(msg.opts.iconColor, false);
+    Icon._customIconURL = msg.opts.customIconURL;
+    Icon.color.set(msg.opts.iconColor, false);
+    Icon.update();
   },
 
   /**
@@ -305,79 +336,214 @@ const Actions = {
 
 const Icon = {
   /**
+   * @type {string|null}
+   */
+  _customIconURL: null,
+
+  /**
    * @returns {void}
    */
   init: function() {
     const picker = document.getElementById('tab-icon-color');
     picker.addEventListener('change', () => {
-      Icon.setColor(picker.value.substring(1), true); // Remove preceeding #
+      Icon.color.set(Icon.color.get.hex(), true);
+      Icon.update();
     });
   },
 
-  /**
-   * @param {string} hex
-   * @param {boolean} push
-   * @returns {void}
-   */
-  setColor: function(hex, push) {
-    hex = hex ?? 'FFFFFF';
-    document.getElementById('tab-icon-color').value = `#${hex}`;
+  get: {
+    /**
+     * @param {string} url
+     * @returns {Promise<HTMLImageElement>}
+     */
+    _imageFromURL: function(url) {
+      return new Promise((resolve) => {
+        const img = document.createElement('img');
+        img.addEventListener('load', () => resolve(img));
+        img.src = url;
+      });
+    },
 
-    Icon.tint(hex);
-    if (push) {
-      BackgroundPage.send.setIconColor(hex);
-    }
+    /**
+     * @returns {Promise<HTMLImageElement>}
+     */
+    default: async function() {
+      return Icon.get._imageFromURL('/res/icons/16.png');
+    },
+
+    /**
+     * @returns {Promise<HTMLImageElement|null>}
+     */
+    custom: async function() {
+      if (Icon._customIconURL == null) {
+        return null;
+      }
+
+      return Icon.get._imageFromURL(Icon._customIconURL);
+    },
   },
 
   /**
-   * @param {string|null} hex A hexadecimal value without the leading #
+   * @param {HTMLImageElement} img
    * @returns {void}
    */
-  tint: function(hex) {
-    const color = Icon._hexToRGB(hex);
+  _set: function(img) {
+    document.getElementById('page-icon').href = img.src;
+  },
+
+  /**
+   * @returns {Promise<void>}
+   */
+  update: async function() {
+    let img = await Icon.get.default();
+    img = Icon._tint(img);
+    img = await Icon._overlayCustomIcon(img);
+    img = Icon._overlayNotification(img);
+    Icon._set(img);
+  },
+
+  color: {
+    get: {
+      /**
+       * @returns {string}
+       */
+      hex: function() {
+        return document.getElementById('tab-icon-color').value.substring(1); // Remove preceeding #
+      },
+
+      /**
+       * Thanks stack overflow :)
+       * https://stackoverflow.com/a/11508164
+       *
+       * @returns {{r: number, g: number, b: number}}
+       */
+      rgb: function() {
+        const bigint = parseInt(Icon.color.get.hex(), 16);
+        return {
+          r: (bigint >> 16) & 255,
+          g: (bigint >> 8) & 255,
+          b: bigint & 255,
+        };
+      },
+    },
+
+    /**
+     * @param {string} hex
+     * @param {boolean} push
+     * @returns {void}
+     */
+    set: function(hex, push) {
+      hex = hex ?? 'FFFFFF';
+      document.getElementById('tab-icon-color').value = `#${hex}`;
+
+      if (push) {
+        BackgroundPage.send.setIconColor(hex);
+      }
+    },
+  },
+
+  /**
+   * @param {HTMLImageElement} img
+   * @returns {HTMLImageElement}
+   */
+  _tint: function(img) {
+    const color = Icon.color.get.rgb();
+
     const canvas = document.createElement('canvas');
     canvas.width = 16;
     canvas.height = 16;
+
     const g = canvas.getContext('2d');
+    g.drawImage(img, 0, 0);
 
-    const img = new Image();
-    img.onload = function() {
-      g.drawImage(img, 0, 0);
-
-      const data = g.getImageData(0, 0, 16, 16);
-      for (let i = 0; i < data.data.length; i += 4) {
-        if (
-          data.data[i + 0] === 255 && // r
-          data.data[i + 1] === 255 && // g
-          data.data[i + 2] === 255    // b
-        ) {
-          data.data[i + 0] = color.r;
-          data.data[i + 1] = color.g;
-          data.data[i + 2] = color.b;
-        }
+    const data = g.getImageData(0, 0, 16, 16);
+    for (let i = 0; i < data.data.length; i += 4) {
+      if (
+        data.data[i + 0] === 255 && // r
+        data.data[i + 1] === 255 && // g
+        data.data[i + 2] === 255    // b
+      ) {
+        data.data[i + 0] = color.r;
+        data.data[i + 1] = color.g;
+        data.data[i + 2] = color.b;
       }
-
-      g.putImageData(data, 0, 0);
-      document.getElementById('page-icon').href = canvas.toDataURL();
     }
-    img.src = '/res/icons/16.png';
+
+    g.putImageData(data, 0, 0);
+    img.src = canvas.toDataURL();
+    return img;
   },
 
   /**
-   * Thanks stack overflow :)
-   * https://stackoverflow.com/a/11508164
-   *
-   * @param {string} hex
-   * @returns {{r: number, g: number, b: number}}
+   * @param {HTMLImageElement} img
+   * @returns {HTMLImageElement}
    */
-  _hexToRGB(hex) {
-    let bigint = parseInt(hex, 16);
-    return {
-      r: (bigint >> 16) & 255,
-      g: (bigint >> 8) & 255,
-      b: bigint & 255,
-    };
-  }
+  _overlayCustomIcon: async function(img) {
+    const customIcon = await Icon.get.custom();
+    if (customIcon == null) { return img; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+
+    const g = canvas.getContext('2d');
+    g.drawImage(img, 0, 0, 12, 12);
+    g.drawImage(customIcon, 4, 4, 12, 12);
+
+    img.src = canvas.toDataURL();
+    return img;
+  },
+
+  /**
+   * @param {HTMLImageElement} img
+   * @returns {HTMLImageElement}
+   */
+  _overlayNotification: function(img) {
+    if (Errors.count() === 0) { return img; }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 16;
+    canvas.height = 16;
+
+    const g = canvas.getContext('2d');
+    g.drawImage(img, 0, 0);
+    g.arc(12, 4, 4, 0, 2 * Math.PI, false);
+    g.fillStyle = 'red';
+    g.fill();
+
+    img.src = canvas.toDataURL();
+    return img;
+  },
+
+  /**
+   * @returns {void}
+   */
+  uploadCustom: function() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.addEventListener('change', () => {
+      if (!input.files || !input.files[0]) { return; }
+
+      const img = document.createElement('img');
+      img.addEventListener('load', () => {
+        URL.revokeObjectURL(img.src);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 16;
+        canvas.height = 16;
+
+        canvas.getContext('2d').drawImage(img, 0, 0, 16, 16);
+
+        Icon._customIconURL = canvas.toDataURL();
+        Icon.update();
+
+        BackgroundPage.send.setCustomIcon(Icon._customIconURL);
+      });
+      img.src = URL.createObjectURL(input.files[0]);
+    });
+    input.click();
+  },
 };
 
 function initialize() {
@@ -393,6 +559,7 @@ function initialize() {
   });
 
   document.getElementById('highlight-btn').addEventListener('click', BackgroundPage.send.highlightTabs);
+  document.getElementById('upload-custom-icon-btn').addEventListener('click', Icon.uploadCustom);
   document.getElementById('should-keep-opened-tabs').addEventListener('change', function() { BackgroundPage.send.setShouldKeepOpenedTabs(document.getElementById('should-keep-opened-tabs').checked); });
 }
 

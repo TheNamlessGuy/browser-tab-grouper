@@ -14,6 +14,7 @@
  * @typedef {object} GroupTabOpts
  * @property {boolean} shouldKeepOpenedTabs
  * @property {string|null} iconColor
+ * @property {string|null} customIconURL
  */
 
 /** InitMessage
@@ -62,6 +63,29 @@ const Communication = {
    * @type {Object.<string, BrowserPort>}
    */
   _ports: {},
+  /**
+   * @type {Object.<string, [(port: BrowserPort) => void>]}
+   */
+  _onPortGet: {},
+
+  /**
+   * @param {string} group
+   * @returns {Promise<BrowserPort>}
+   */
+  _getPort: function(group) {
+    return new Promise((resolve) => {
+      if (Communication._ports[group] != null) {
+        resolve(Communication._ports[group]);
+        return;
+      }
+
+      if (group in Communication._onPortGet) {
+        Communication._onPortGet[group].push(resolve);
+      } else {
+        Communication._onPortGet[group] = [resolve];
+      }
+    });
+  },
 
   /**
    * @returns {void}
@@ -96,8 +120,8 @@ const Communication = {
      * @param {Record<string, any>} data
      * @returns {void}
      */
-    _data: function(group, action, data) {
-      const port = Communication._ports[group];
+    _data: async function(group, action, data) {
+      const port = await Communication._getPort(group);
       if (port != null) {
         port.postMessage({action: action, ...JSON.parse(JSON.stringify(data))});
       }
@@ -181,6 +205,11 @@ const Communication = {
           console.error('Unknown action gotten by Communication', {group: port.name, msg});
         }
       });
+
+      if (port.name in Communication._onPortGet) {
+        for (const resolve of Communication._onPortGet[port.name]) { resolve(port); }
+        delete Communication._onPortGet[port.name];
+      }
     },
 
     map: {
@@ -241,6 +270,16 @@ const Communication = {
        */
       'swap-to-tab': async function(group, msg) {
         await browser.tabs.update(msg.tabID, {active: true});
+      },
+
+      /**
+       * @param {string} group
+       * @param {{dataURL: string}} msg
+       * @returns {Promise<void>}
+       */
+      'set-custom-icon': async function(group, msg) {
+        const groupTab = await Groups.groupTab.get(group);
+        await Tabs.value.set.customIconURL(groupTab.id, msg.dataURL);
       },
     },
   },

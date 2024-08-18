@@ -285,6 +285,7 @@ const Groups = {
         opts: {
           shouldKeepOpenedTabs: await Tabs.value.get.shouldKeepOpenedTabs(tabID),
           iconColor: await Tabs.value.get.iconColor(tabID),
+          customIconURL: await Tabs.value.get.customIconURL(tabID),
         },
       });
     },
