@@ -241,6 +241,16 @@ const Groups = {
     cache: {},
 
     /**
+     * @param {string|null} group
+     * @returns {string}
+     */
+    getURL: function(group) {
+      let url = '/src/group-tab/index.html';
+      if (group != null) { url += `?group=${encodeURIComponent(group)}`; }
+      return browser.runtime.getURL(url);
+    },
+
+    /**
      * @param {string} group
      * @param {number} windowID
      * @param {number} index
@@ -249,7 +259,7 @@ const Groups = {
      */
     create: async function(group, windowID, index, active = true) {
       const tab = await browser.tabs.create({
-        url: `/src/group-tab/index.html?group=${encodeURIComponent(group)}`,
+        url: Groups.groupTab.getURL(group),
         index: index,
         active: active,
         windowId: windowID,

@@ -165,11 +165,13 @@ const Tabs = {
      * @param {number} tabID
      * @param {number|null} [windowID=null]
      * @param {number|null} [index=null]
-     * @returns {Promise<number>}
+     * @returns {Promise<number|null>}
      */
     outOfOtherGroups: async function(tabID, windowID = null, index = null) {
       if (windowID == null || index == null) {
         const tab = await Tabs.get(tabID);
+        if (tab == null) { return null; }
+
         windowID = tab.windowId;
         index = tab.index;
       }
@@ -496,7 +498,7 @@ const Tabs = {
         const tabsInGroup = await Tabs.getTabsInGroup(group, windowID, false);
         if (otherGroupTab != null || tabsInGroup.length === 0) { // There is a new group with the same name as the restored tab - deinit this one
           await Groups.groupTab.deinit(tab.id);
-          await browser.tabs.update(tab.id, {url: '/src/group-tab/index.html', loadReplace: true}); // Remove the ?group parameter, which should signal to the tab that it isn't active anymore
+          await browser.tabs.update(tab.id, {url: Groups.groupTab.getURL(null), loadReplace: true}); // Remove the ?group parameter, which should signal to the tab that it isn't active anymore
         } else { // We can safely restore this tab group
           await Groups.groupTab.init(tab.id, group, windowID);
           await Groups.collapse.allExceptCurrent(windowID);
@@ -592,7 +594,14 @@ const Tabs = {
       const group = await Tabs.value.get.group(tabID);
       const isGroupTab = await Tabs.value.get.isGroupTab(tabID);
 
-      if (isGroupTab) { // Some naughty user refreshed their group tab. Bad user, bad!
+      if (isGroupTab) { // Some naughty user refreshed/navigated away from their group tab. Bad user, bad!
+        const url = new URL(Groups.groupTab.getURL(group));
+        const tabURL = new URL(tab.url);
+        if (!Background.urlEqual(url, tabURL)) {
+          await browser.tabs.update(tabID, {url: url.href, loadReplace: true});
+          return;
+        }
+
         await Groups.groupTab.init(tabID, group, tab.windowId);
       } else if (group != null) {
         Communication.send.updateTab(group, tab);
