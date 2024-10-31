@@ -55,6 +55,14 @@ const BackgroundPage = {
     },
 
     /**
+     * @param {boolean} value
+     * @returns {void}
+     */
+    setPromptOnClose: function(value) {
+      BackgroundPage.send.action('set-opt--prompt-on-close', {value});
+    },
+
+    /**
      * @param {number} tabID
      * @returns {void}
      */
@@ -282,6 +290,7 @@ const Actions = {
    */
   'init': function(msg) {
     document.getElementById('should-keep-opened-tabs').checked = msg.opts.shouldKeepOpenedTabs;
+    document.getElementById('prompt-on-close').checked = msg.opts.promptOnClose;
 
     Tabs.removeAll();
     for (const tab of msg.tabs) {
@@ -561,6 +570,7 @@ function initialize() {
   document.getElementById('highlight-btn').addEventListener('click', BackgroundPage.send.highlightTabs);
   document.getElementById('upload-custom-icon-btn').addEventListener('click', Icon.uploadCustom);
   document.getElementById('should-keep-opened-tabs').addEventListener('change', function() { BackgroundPage.send.setShouldKeepOpenedTabs(document.getElementById('should-keep-opened-tabs').checked); });
+  document.getElementById('prompt-on-close').addEventListener('change', function() { BackgroundPage.send.setPromptOnClose(document.getElementById('prompt-on-close').checked); });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -569,5 +579,11 @@ window.addEventListener('DOMContentLoaded', async () => {
   } else {
     document.getElementById('inactive-content').classList.add('hidden');
     initialize();
+  }
+});
+
+window.addEventListener('beforeunload', (e) => {
+  if (document.getElementById('prompt-on-close')?.checked) {
+    e.preventDefault();
   }
 });

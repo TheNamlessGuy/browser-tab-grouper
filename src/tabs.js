@@ -202,6 +202,7 @@ const Tabs = {
       shouldKeepOpenedTabs: 'should-inherit-group',
       iconColor: 'icon-color',
       customIconURL: 'custom-icon-url',
+      promptOnClose: 'prompt-on-close',
     },
 
     get: {
@@ -243,6 +244,14 @@ const Tabs = {
        */
       customIconURL: async function(tabID) {
         return Tabs.value.get._value(tabID, Tabs.value.keys.customIconURL);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<string|null>}
+       */
+      promptOnClose: async function(tabID) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.promptOnClose);
       },
 
       /**
@@ -303,6 +312,15 @@ const Tabs = {
        */
       customIconURL: async function(tabID, value) {
         await Tabs.value.set._value(tabID, Tabs.value.keys.customIconURL, value);
+      },
+
+      /**
+       * @param {number} tabID
+       * @param {boolean} value
+       * @returns {Promise<void>}
+       */
+      promptOnClose: async function(tabID, value) {
+        await Tabs.value.set._value(tabID, Tabs.value.keys.promptOnClose, value);
       },
 
       /**
@@ -386,6 +404,20 @@ const Tabs = {
           await Tabs.value.set.customIconURL(tabID, value);
         }
       },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {true} value
+       * @returns {Promise<void>}
+       */
+      promptOnClose: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.promptOnClose(tabID);
+        if (!currentValue) {
+          await Tabs.value.set.promptOnClose(tabID, value);
+        }
+      },
     },
 
     remove: {
@@ -399,6 +431,7 @@ const Tabs = {
         await Tabs.value.remove.shouldKeepOpenedTabs(tabID);
         await Tabs.value.remove.iconColor(tabID);
         await Tabs.value.remove.customIconURL(tabID);
+        await Tabs.value.remove.promptOnClose(tabID);
       },
 
       /**
@@ -440,6 +473,14 @@ const Tabs = {
        */
       customIconURL: async function(tabID) {
         await Tabs.value.remove._value(tabID, Tabs.value.keys.customIconURL);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<void>}
+       */
+      promptOnClose: async function(tabID) {
+        await Tabs.value.remove._value(tabID, Tabs.value.keys.promptOnClose);
       },
 
       /**
@@ -500,8 +541,16 @@ const Tabs = {
           await Groups.groupTab.deinit(tab.id);
           await browser.tabs.update(tab.id, {url: Groups.groupTab.getURL(null), loadReplace: true}); // Remove the ?group parameter, which should signal to the tab that it isn't active anymore
         } else { // We can safely restore this tab group
+          const promptOnCloseWasSet = await Tabs.value.get.promptOnClose(tab.id);
+          await Tabs.value.set.promptOnClose(tab.id, false);
+
           await Groups.groupTab.init(tab.id, group, windowID);
           await Groups.collapse.allExceptCurrent(windowID);
+          await Menus.addGroup(group);
+
+          if (promptOnCloseWasSet) {
+            await Communication.send.errors(group, ['Due to browser restrictions, this reopened tab had to have its "Prompt me if I try to close this tab group" status unset']);
+          }
         }
       } else if (group) { // Reopened a tab that used to be grouped
         const groupTab = await Groups.groupTab.get(group);

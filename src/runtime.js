@@ -41,7 +41,7 @@ const Runtime = {
         const span = await Tabs.getGroupIndexSpan(group, window.id, false);
         if (span != null) {
           await Groups.groupTab.create(group, window.id, span.min, false);
-          await Communication.send.errors(group, ['Group tab had to be restored, some settings may have been lost. If you see this error, please leave a comment <a href="https://github.com/TheNamlessGuy/browser-tab-grouper/issues/4">here</a>']);
+          await Communication.send.errors(group, ['Group tab had to be restored, some settings may have been lost. Due to how Firefox seems to work (currently), this seems to be expected behavior when the plugin updates. If you see this error under any other circumstances, please leave a comment <a href="https://github.com/TheNamlessGuy/browser-tab-grouper/issues/4">here</a>']);
         }
       }
 

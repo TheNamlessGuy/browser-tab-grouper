@@ -282,6 +282,7 @@ const Groups = {
       await Tabs.value.initialize.isGroupTab(tabID, true);
       await Tabs.value.initialize.shouldKeepOpenedTabs(tabID, false);
       await Tabs.value.initialize.iconColor(tabID, 'FFFFFF');
+      await Tabs.value.initialize.promptOnClose(tabID, false);
 
       await Groups.groupTab.update(group, windowID, tabID);
     },
@@ -296,6 +297,7 @@ const Groups = {
           shouldKeepOpenedTabs: await Tabs.value.get.shouldKeepOpenedTabs(tabID),
           iconColor: await Tabs.value.get.iconColor(tabID),
           customIconURL: await Tabs.value.get.customIconURL(tabID),
+          promptOnClose: await Tabs.value.get.promptOnClose(tabID),
         },
       });
     },

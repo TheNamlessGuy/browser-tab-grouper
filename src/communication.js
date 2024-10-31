@@ -13,6 +13,7 @@
 /** GroupTabOpts
  * @typedef {object} GroupTabOpts
  * @property {boolean} shouldKeepOpenedTabs
+ * @property {boolean} promptOnClose
  * @property {string|null} iconColor
  * @property {string|null} customIconURL
  */
@@ -252,6 +253,15 @@ const Communication = {
       'set-opt--should-keep-opened-tabs': async function(group, msg) {
         const groupTab = await Groups.groupTab.get(group);
         await Tabs.value.set.shouldKeepOpenedTabs(groupTab.id, msg.value);
+      },
+
+      /**
+       * @param {string} group
+       * @param {{value: boolean}} msg
+       */
+      'set-opt--prompt-on-close': async function(group, msg) {
+        const groupTab = await Groups.groupTab.get(group);
+        await Tabs.value.set.promptOnClose(groupTab.id, msg.value);
       },
 
       /**
