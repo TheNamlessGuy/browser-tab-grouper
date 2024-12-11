@@ -164,7 +164,55 @@ const Groups = {
     await Tabs.move.outOfOtherGroups(tabID);
   },
 
+  open: {
+    /**
+     * @param {string} group
+     * @param {number|null} windowID
+     */
+    group: async function(group, windowID = null) {
+      const tabs = await Tabs.getTabsInGroup(group, windowID);
+      for (const tab of tabs) {
+        await Tabs.show(tab.id);
+      }
+    },
+
+    /**
+     * @param {string} group
+     * @param {number|null} windowID
+     * @returns {Promise<boolean>}
+     */
+    is: async function(group, windowID = null) {
+      const tabs = await Tabs.getTabsInGroup(group, windowID);
+      return !tabs[0].hidden;
+    },
+
+    /**
+     * @param {string} group
+     * @param {number|null} windowID
+     * @returns {Promise<void>}
+     */
+    toggle: async function(group, windowID = null) {
+      const isOpen = await Groups.open.is(group, windowID);
+      if (isOpen) {
+        await Groups.collapse.group(group, windowID);
+      } else {
+        await Groups.open.group(group, windowID);
+      }
+    },
+  },
+
   collapse: {
+    /**
+     * @param {string} group
+     * @param {number|null} windowID
+     */
+    group: async function(group, windowID = null) {
+      const tabs = await Tabs.getTabsInGroup(group, windowID);
+      for (const tab of tabs) {
+        await Tabs.hide(tab.id);
+      }
+    },
+
     /**
      * @param {string|null} except The name of the group to not collapse, if any
      * @param {number} windowID
@@ -180,7 +228,17 @@ const Groups = {
         }
 
         const group = await Tabs.value.get.group(tab.id);
-        if (group == null || group === except) {
+        if (group == null) {
+          await Tabs.show(tab.id);
+          continue;
+        }
+
+        const automaticallyOpenCollapse = await Tabs.value.getViaGroup.automaticallyOpenCollapse(group);
+        if (!automaticallyOpenCollapse) {
+          continue; // This group manages its own collapsing
+        }
+
+        if (group === except) {
           await Tabs.show(tab.id);
         } else {
           await Tabs.hide(tab.id);
@@ -283,10 +341,17 @@ const Groups = {
       await Tabs.value.initialize.shouldKeepOpenedTabs(tabID, false);
       await Tabs.value.initialize.iconColor(tabID, 'FFFFFF');
       await Tabs.value.initialize.promptOnClose(tabID, false);
+      await Tabs.value.initialize.automaticallyOpenCollapse(tabID, true);
 
       await Groups.groupTab.update(group, windowID, tabID);
     },
 
+    /**
+     * @param {string} group
+     * @param {number|null} windowID
+     * @param {number|null} tabID
+     * @returns {Promise<void>}
+     */
     update: async function(group, windowID = null, tabID = null) {
       windowID = windowID ?? await Windows.getIDForGroup(group);
       tabID = tabID ?? (await Groups.groupTab.get(group, windowID)).id;
@@ -298,6 +363,7 @@ const Groups = {
           iconColor: await Tabs.value.get.iconColor(tabID),
           customIconURL: await Tabs.value.get.customIconURL(tabID),
           promptOnClose: await Tabs.value.get.promptOnClose(tabID),
+          automaticallyOpenCollapse: await Tabs.value.get.automaticallyOpenCollapse(tabID),
         },
       });
     },

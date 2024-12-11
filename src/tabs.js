@@ -203,55 +203,71 @@ const Tabs = {
       iconColor: 'icon-color',
       customIconURL: 'custom-icon-url',
       promptOnClose: 'prompt-on-close',
+      automaticallyOpenCollapse: 'automatically-open-collapse',
     },
 
     get: {
       /**
        * @param {number} tabID
+       * @param {*} defaultValue
        * @returns {Promise<string|null>}
        */
-      group: async function(tabID) {
-        return Tabs.value.get._value(tabID, Tabs.value.keys.group);
+      group: async function(tabID, defaultValue = null) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.group, defaultValue);
       },
 
       /**
        * @param {number} tabID
+       * @param {*} defaultValue
        * @returns {Promise<boolean>}
        */
-      isGroupTab: async function(tabID) {
-        return Tabs.value.get._value(tabID, Tabs.value.keys.isGroupTab, false);
+      isGroupTab: async function(tabID, defaultValue = false) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.isGroupTab, defaultValue);
       },
 
       /**
        * @param {number} tabID
+       * @param {*} defaultValue
        * @returns {Promise<boolean>}
        */
-      shouldKeepOpenedTabs: async function(tabID) {
-        return Tabs.value.get._value(tabID, Tabs.value.keys.shouldKeepOpenedTabs, false);
+      shouldKeepOpenedTabs: async function(tabID, defaultValue = false) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.shouldKeepOpenedTabs, defaultValue);
       },
 
       /**
        * @param {number} tabID
+       * @param {*} defaultValue
        * @returns {Promise<string|null>}
        */
-      iconColor: async function(tabID) {
-        return Tabs.value.get._value(tabID, Tabs.value.keys.iconColor);
+      iconColor: async function(tabID, defaultValue = null) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.iconColor, defaultValue);
       },
 
       /**
        * @param {number} tabID
+       * @param {*} defaultValue
        * @returns {Promise<string|null>}
        */
-      customIconURL: async function(tabID) {
-        return Tabs.value.get._value(tabID, Tabs.value.keys.customIconURL);
+      customIconURL: async function(tabID, defaultValue = null) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.customIconURL, defaultValue);
       },
 
       /**
        * @param {number} tabID
-       * @returns {Promise<string|null>}
+       * @param {*} defaultValue
+       * @returns {Promise<boolean>}
        */
-      promptOnClose: async function(tabID) {
-        return Tabs.value.get._value(tabID, Tabs.value.keys.promptOnClose);
+      promptOnClose: async function(tabID, defaultValue = false) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.promptOnClose, defaultValue);
+      },
+
+      /**
+       * @param {number} tabID
+       * @param {*} defaultValue
+       * @returns {Promise<boolean>}
+       */
+      automaticallyOpenCollapse: async function(tabID, defaultValue = true) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.automaticallyOpenCollapse, defaultValue);
       },
 
       /**
@@ -264,6 +280,69 @@ const Tabs = {
         return new Promise((resolve) => {
           browser.sessions.getTabValue(tabID, key).then((value) => resolve(value ?? defaultValue), () => resolve(defaultValue));
         });
+      },
+    },
+
+    getViaGroup: {
+      /**
+       * @param {string} group
+       * @throws {Error} Always
+       */
+      group: async function(group) {
+        throw new Error("That doesn't make any sense");
+      },
+
+      /**
+       * @param {string} group
+       * @throws {Error} Always
+       */
+      isGroupTab: async function(group) {
+        throw new Error("That doesn't make any sense either");
+      },
+
+      /**
+       * @param {string} group
+       * @returns {Promise<boolean>}
+       */
+      shouldKeepOpenedTabs: async function(group) {
+        const groupTab = await Groups.groupTab.get(group);
+        return await Tabs.value.get.shouldKeepOpenedTabs(groupTab.id);
+      },
+
+      /**
+       * @param {string} group
+       * @returns {Promise<string|null>}
+       */
+      iconColor: async function(group) {
+        const groupTab = await Groups.groupTab.get(group);
+        return await Tabs.value.get.iconColor(groupTab.id);
+      },
+
+      /**
+       * @param {string} group
+       * @returns {Promise<string|null>}
+       */
+      customIconURL: async function(group) {
+        const groupTab = await Groups.groupTab.get(group);
+        return await Tabs.value.get.customIconURL(groupTab.id);
+      },
+
+      /**
+       * @param {string} group
+       * @returns {Promise<string|null>}
+       */
+      promptOnClose: async function(group) {
+        const groupTab = await Groups.groupTab.get(group);
+        return await Tabs.value.get.promptOnClose(groupTab.id);
+      },
+
+      /**
+       * @param {string} group
+       * @returns {Promise<string|null>}
+       */
+      automaticallyOpenCollapse: async function(group) {
+        const groupTab = await Groups.groupTab.get(group);
+        return await Tabs.value.get.automaticallyOpenCollapse(groupTab.id);
       },
     },
 
@@ -325,6 +404,15 @@ const Tabs = {
 
       /**
        * @param {number} tabID
+       * @param {boolean} value
+       * @returns {Promise<void>}
+       */
+      automaticallyOpenCollapse: async function(tabID, value) {
+        await Tabs.value.set._value(tabID, Tabs.value.keys.automaticallyOpenCollapse, value);
+      },
+
+      /**
+       * @param {number} tabID
        * @param {string} key
        * @param {*} value
        * @returns {Promise<void>}
@@ -343,7 +431,7 @@ const Tabs = {
        * @returns {Promise<void>}
        */
       group: async function(tabID, group) {
-        const currentValue = await Tabs.value.get.group(tabID);
+        const currentValue = await Tabs.value.get.group(tabID, null);
         if (currentValue == null) {
           await Tabs.value.set.group(tabID, group);
         }
@@ -357,8 +445,8 @@ const Tabs = {
        * @returns {Promise<void>}
        */
       isGroupTab: async function(tabID, value) {
-        const currentValue = await Tabs.value.get.isGroupTab(tabID);
-        if (!currentValue) {
+        const currentValue = await Tabs.value.get.isGroupTab(tabID, null);
+        if (currentValue == null) {
           await Tabs.value.set.isGroupTab(tabID, value);
         }
       },
@@ -371,8 +459,8 @@ const Tabs = {
        * @returns {Promise<void>}
        */
       shouldKeepOpenedTabs: async function(tabID, value) {
-        const currentValue = await Tabs.value.get.shouldKeepOpenedTabs(tabID);
-        if (!currentValue) {
+        const currentValue = await Tabs.value.get.shouldKeepOpenedTabs(tabID, null);
+        if (currentValue == null) {
           await Tabs.value.set.shouldKeepOpenedTabs(tabID, value);
         }
       },
@@ -385,8 +473,8 @@ const Tabs = {
        * @returns {Promise<void>}
        */
       iconColor: async function(tabID, value) {
-        const currentValue = await Tabs.value.get.iconColor(tabID);
-        if (!currentValue) {
+        const currentValue = await Tabs.value.get.iconColor(tabID, null);
+        if (currentValue == null) {
           await Tabs.value.set.iconColor(tabID, value);
         }
       },
@@ -399,8 +487,8 @@ const Tabs = {
        * @returns {Promise<void>}
        */
       customIconURL: async function(tabID, value) {
-        const currentValue = await Tabs.value.get.customIconURL(tabID);
-        if (!currentValue) {
+        const currentValue = await Tabs.value.get.customIconURL(tabID, null);
+        if (currentValue == null) {
           await Tabs.value.set.customIconURL(tabID, value);
         }
       },
@@ -413,9 +501,23 @@ const Tabs = {
        * @returns {Promise<void>}
        */
       promptOnClose: async function(tabID, value) {
-        const currentValue = await Tabs.value.get.promptOnClose(tabID);
-        if (!currentValue) {
+        const currentValue = await Tabs.value.get.promptOnClose(tabID, null);
+        if (currentValue == null) {
           await Tabs.value.set.promptOnClose(tabID, value);
+        }
+      },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {true} value
+       * @returns {Promise<void>}
+       */
+      automaticallyOpenCollapse: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.automaticallyOpenCollapse(tabID, null);
+        if (currentValue == null) {
+          await Tabs.value.set.automaticallyOpenCollapse(tabID, value);
         }
       },
     },
@@ -432,6 +534,7 @@ const Tabs = {
         await Tabs.value.remove.iconColor(tabID);
         await Tabs.value.remove.customIconURL(tabID);
         await Tabs.value.remove.promptOnClose(tabID);
+        await Tabs.value.remove.automaticallyOpenCollapse(tabID);
       },
 
       /**
@@ -481,6 +584,14 @@ const Tabs = {
        */
       promptOnClose: async function(tabID) {
         await Tabs.value.remove._value(tabID, Tabs.value.keys.promptOnClose);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<void>}
+       */
+      automaticallyOpenCollapse: async function(tabID) {
+        await Tabs.value.remove._value(tabID, Tabs.value.keys.automaticallyOpenCollapse);
       },
 
       /**
@@ -593,9 +704,11 @@ const Tabs = {
       await Groups.collapse.allExcept(newGroup, info.windowId);
 
       if (newGroup != null) {
+        const automaticallyOpenCollapse = await Tabs.value.getViaGroup.automaticallyOpenCollapse(newGroup);
+
         if (newGroup === oldGroup) { // Swapped tabs within the same group - update the last active tab
           Groups.lastActiveTab.set(newGroup, info.tabId);
-        } else if (Groups.lastActiveTab.get(newGroup) != null) { // Moved from one group to another - swap to the last active tab of the new group (if any)
+        } else if (automaticallyOpenCollapse && Groups.lastActiveTab.get(newGroup) != null) { // Moved from one group to another - swap to the last active tab of the new group (if any)
           await Tabs.setActive(Groups.lastActiveTab.get(newGroup));
         }
       }

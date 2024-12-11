@@ -36,6 +36,17 @@ const Menus = {
     });
 
     browser.menus.create({
+      id: Menus._ids.openCollapse,
+      title: 'Open/collapse group',
+      contexts: ['tab'],
+      icons: {
+        '48': 'res/icons/48.png',
+        '32': 'res/icons/32.png',
+        '16': 'res/icons/16.png',
+      },
+    });
+
+    browser.menus.create({
       id: Menus._ids.addToNewGroup,
       parentId: Menus._ids.root,
       title: 'Add to new group',
@@ -115,6 +126,7 @@ const Menus = {
 
   _ids: {
     root: 'root',
+    openCollapse: 'open-collapse',
     addToNewGroup: 'add-to-new-group',
     noActionsAvailable: 'no-actions-available',
     separator: 'separator',
@@ -146,6 +158,7 @@ const Menus = {
       const otherGroups = await Groups.getAll(!tab.incognito);
 
       if (group == null) { // The clicked tab isn't part of any group
+        await browser.menus.update(Menus._ids.openCollapse, {visible: false});
         await browser.menus.update(Menus._ids.noActionsAvailable, {visible: false});
         await browser.menus.update(Menus._ids.addToNewGroup, {visible: true});
         await browser.menus.update(Menus._ids.separator, {visible: groups.length > 0});
@@ -160,7 +173,10 @@ const Menus = {
         }
       } else if (isGroupTab) { // The clicked tab is a group tab
         await browser.menus.update(Menus._ids.root, {visible: false});
+        const automaticallyOpenCollapse = await Tabs.value.get.automaticallyOpenCollapse(tab.id);
+        await browser.menus.update(Menus._ids.openCollapse, {visible: !automaticallyOpenCollapse});
       } else { // The clicked tab is part of a group, and is a regular tab
+        await browser.menus.update(Menus._ids.openCollapse, {visible: false});
         await browser.menus.update(Menus._ids.noActionsAvailable, {visible: false});
         await browser.menus.update(Menus._ids.addToNewGroup, {visible: true});
         await browser.menus.update(Menus._ids.separator, {visible: groups.length > 0});
@@ -213,6 +229,8 @@ const Menus = {
         Menus._on.addToNewGroup(clickedTab);
       } else if (info.menuItemId.startsWith(Menus._ids.groupPrefix)) {
         Menus._on.groupAction(Menus._ids.extractGroup(info.menuItemId), clickedTab);
+      } else if (info.menuItemId === Menus._ids.openCollapse) {
+        Menus._on.onOpenCollapseToggle(clickedTab);
       }
     },
 
@@ -227,6 +245,15 @@ const Menus = {
       for (const tab of tabs) {
         await Groups.addTabTo(group, tab);
       }
+    },
+
+    /**
+     * @param {BrowserTab} clickedTab
+     * @returns {Promise<void>}
+     */
+    onOpenCollapseToggle: async function(clickedTab) {
+      const group = await Tabs.value.get.group(clickedTab.id);
+      await Groups.open.toggle(group, clickedTab.windowId);
     },
   },
 

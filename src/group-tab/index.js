@@ -63,6 +63,14 @@ const BackgroundPage = {
     },
 
     /**
+     * @param {boolean} value
+     * @returns {void}
+     */
+    automaticallyOpenCollapse: function(value) {
+      BackgroundPage.send.action('set-opt--automatically-open-collapse', {value});
+    },
+
+    /**
      * @param {number} tabID
      * @returns {void}
      */
@@ -84,6 +92,13 @@ const BackgroundPage = {
      */
     setCustomIcon: function(dataURL) {
       BackgroundPage.send.action('set-custom-icon', {dataURL});
+    },
+
+    /**
+     * @returns {void}
+     */
+    toggleOpenCollapse: function() {
+      BackgroundPage.send.action('toggle-open-collapse', {});
     },
   },
 
@@ -291,6 +306,8 @@ const Actions = {
   'init': function(msg) {
     document.getElementById('should-keep-opened-tabs').checked = msg.opts.shouldKeepOpenedTabs;
     document.getElementById('prompt-on-close').checked = msg.opts.promptOnClose;
+    document.getElementById('automatically-open-collapse').checked = msg.opts.automaticallyOpenCollapse;
+    document.getElementById('open-collapse-group-btn').classList.toggle('hidden', msg.opts.automaticallyOpenCollapse);
 
     Tabs.removeAll();
     for (const tab of msg.tabs) {
@@ -569,8 +586,14 @@ function initialize() {
 
   document.getElementById('highlight-btn').addEventListener('click', BackgroundPage.send.highlightTabs);
   document.getElementById('upload-custom-icon-btn').addEventListener('click', Icon.uploadCustom);
+  document.getElementById('open-collapse-group-btn').addEventListener('click', function() { BackgroundPage.send.toggleOpenCollapse(); });
   document.getElementById('should-keep-opened-tabs').addEventListener('change', function() { BackgroundPage.send.setShouldKeepOpenedTabs(document.getElementById('should-keep-opened-tabs').checked); });
   document.getElementById('prompt-on-close').addEventListener('change', function() { BackgroundPage.send.setPromptOnClose(document.getElementById('prompt-on-close').checked); });
+  document.getElementById('automatically-open-collapse').addEventListener('change', function() {
+    const checked = document.getElementById('automatically-open-collapse').checked;
+    BackgroundPage.send.automaticallyOpenCollapse(checked);
+    document.getElementById('open-collapse-group-btn').classList.toggle('hidden', checked);
+  });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {

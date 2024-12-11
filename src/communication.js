@@ -14,6 +14,7 @@
  * @typedef {object} GroupTabOpts
  * @property {boolean} shouldKeepOpenedTabs
  * @property {boolean} promptOnClose
+ * @property {boolean} automaticallyOpenCollapse
  * @property {string|null} iconColor
  * @property {string|null} customIconURL
  */
@@ -266,6 +267,15 @@ const Communication = {
 
       /**
        * @param {string} group
+       * @param {{value: boolean}} msg
+       */
+      'set-opt--automatically-open-collapse': async function(group, msg) {
+        const groupTab = await Groups.groupTab.get(group);
+        await Tabs.value.set.automaticallyOpenCollapse(groupTab.id, msg.value);
+      },
+
+      /**
+       * @param {string} group
        * @param {RemoveTabMessage} msg
        * @returns {Promise<void>}
        */
@@ -290,6 +300,15 @@ const Communication = {
       'set-custom-icon': async function(group, msg) {
         const groupTab = await Groups.groupTab.get(group);
         await Tabs.value.set.customIconURL(groupTab.id, msg.dataURL);
+      },
+
+      /**
+       * @param {string} group
+       * @param {{}} msg
+       * @returns {Promise<void>}
+       */
+      'toggle-open-collapse': async function(group, msg) {
+        await Groups.open.toggle(group);
       },
     },
   },
