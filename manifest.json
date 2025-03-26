@@ -20,7 +20,8 @@
     "tabs",
     "tabHide",
     "menus",
-    "sessions"
+    "sessions",
+    "storage"
   ],
 
   "background": {
@@ -31,7 +32,7 @@
       "src/tabs.js",
       "src/groups.js",
       "src/windows.js",
-
+	    "src/auto-group.js", 
       "src/background.js"
     ]
   },

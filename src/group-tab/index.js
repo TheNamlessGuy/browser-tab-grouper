@@ -572,7 +572,59 @@ const Icon = {
   },
 };
 
-function initialize() {
+const RegexManager = {
+  async render() {
+    const group = Group.get();
+    const rules = await AutoGroup.getRules();
+    const list = document.getElementById('regex-list');
+    list.innerHTML = '';
+
+    if (!rules[group] || rules[group].length === 0) {
+      list.textContent = 'No rules set.';
+      return;
+    }
+
+    for (const regex of rules[group]) {
+      const div = document.createElement('div');
+      div.className = 'regex-entry';
+
+      const span = document.createElement('span');
+      span.textContent = regex;
+
+      const removeBtn = document.createElement('button');
+      removeBtn.textContent = 'Remove';
+      removeBtn.addEventListener('click', async () => {
+        await AutoGroup.removeRule(group, regex);
+        await RegexManager.render();
+      });
+
+      div.appendChild(span);
+      div.appendChild(removeBtn);
+      list.appendChild(div);
+    }
+  },
+
+  async add() {
+    const input = document.getElementById('regex-input');
+    const regex = input.value.trim();
+    if (!regex) return;
+
+    try {
+      new RegExp(regex);
+    } catch (err) {
+      Errors.add(`Invalid regex: ${regex}`);
+      return;
+    }
+
+    const group = Group.get();
+    await AutoGroup.addRule(group, regex);
+    input.value = '';
+    await RegexManager.render();
+  }
+};
+
+
+async function initialize() {
   Icon.init();
   Group.set(Group.get(), false, true);
   BackgroundPage.init();
@@ -594,6 +646,9 @@ function initialize() {
     BackgroundPage.send.automaticallyOpenCollapse(checked);
     document.getElementById('open-collapse-group-btn').classList.toggle('hidden', checked);
   });
+  document.getElementById('regex-add-btn').addEventListener('click', RegexManager.add);
+  await RegexManager.render();
+
 }
 
 window.addEventListener('DOMContentLoaded', async () => {

@@ -110,6 +110,14 @@ const Groups = {
     await Menus.removeGroup(group);
     await Communication.removeGroup(group);
 
+    if (typeof AutoGroup !== 'undefined') {
+      const rules = await AutoGroup.getRules();
+      if (group in rules) {
+        delete rules[group];
+        await AutoGroup.setRules(rules);
+      }
+    }
+
     windowID = windowID ?? await Windows.getIDForGroup(group);
     const activeGroup = await Windows.getCurrentGroupIn(windowID);
 

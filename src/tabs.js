@@ -768,6 +768,16 @@ const Tabs = {
       } else if (group != null) {
         Communication.send.updateTab(group, tab);
       }
+		else {
+		  const matchedGroup = await AutoGroup.matchGroupForURL(tab.url);
+		  if (matchedGroup != null) {
+			const currentGroup = await Tabs.value.get.group(tabID);
+			const isGroupTab = await Tabs.value.get.isGroupTab(tabID);
+			if (!currentGroup && !isGroupTab) {
+			  await Groups.addTabTo(matchedGroup, tab);
+			}
+		  }
+		}
     },
 
     /**

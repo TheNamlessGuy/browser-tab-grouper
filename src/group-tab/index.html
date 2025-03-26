@@ -9,7 +9,10 @@
     <script src="custom-elements/labeled-checkbox.js"></script>
     <script src="custom-elements/labeled-color-picker.js"></script>
     <script src="custom-elements/tab.js"></script>
+    <script src="../auto-group.js"></script>
     <script src="index.js"></script>
+	
+
   </head>
   <body class="theme-dark">
     <div id="error-container"></div>
@@ -27,6 +30,15 @@
           <labeled-checkbox id="prompt-on-close">Prompt me if I try to close this tab group</labeled-checkbox>
           <labeled-color-picker id="tab-icon-color">Set the group icon color</labeled-color-picker>
         </fieldset>
+		
+		<fieldset id="regex-fieldset">
+		  <legend>Auto-Move Rules</legend>
+		  <div id="regex-list"></div>
+		  <div>
+			<input id="regex-input" type="text" placeholder="Enter regex (e.g. ^https://.*\.example\.com/.*)" style="width: 100%;">
+			<button id="regex-add-btn">Add Rule</button>
+		  </div>
+		</fieldset>
 
         <fieldset>
           <legend>Actions</legend>
