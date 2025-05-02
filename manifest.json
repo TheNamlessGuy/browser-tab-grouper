@@ -1,7 +1,7 @@
 {
   "manifest_version": 2,
   "name": "Tab Grouper",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "Groups tabs",
   "author": "TheNamlessGuy",
   "homepage_url": "https://github.com/TheNamlessGuy/browser-tab-grouper",

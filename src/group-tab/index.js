@@ -66,6 +66,14 @@ const BackgroundPage = {
      * @param {boolean} value
      * @returns {void}
      */
+    rememberLastActiveTab: function(value) {
+      BackgroundPage.send.action('set-opt--remember-last-active-tab', {value});
+    },
+
+    /**
+     * @param {boolean} value
+     * @returns {void}
+     */
     automaticallyOpenCollapse: function(value) {
       BackgroundPage.send.action('set-opt--automatically-open-collapse', {value});
     },
@@ -306,6 +314,7 @@ const Actions = {
   'init': function(msg) {
     document.getElementById('should-keep-opened-tabs').checked = msg.opts.shouldKeepOpenedTabs;
     document.getElementById('prompt-on-close').checked = msg.opts.promptOnClose;
+    document.getElementById('remember-last-active-tab').checked = msg.opts.rememberLastActiveTab;
     document.getElementById('automatically-open-collapse').checked = msg.opts.automaticallyOpenCollapse;
     document.getElementById('open-collapse-group-btn').classList.toggle('hidden', msg.opts.automaticallyOpenCollapse);
 
@@ -589,6 +598,7 @@ function initialize() {
   document.getElementById('open-collapse-group-btn').addEventListener('click', function() { BackgroundPage.send.toggleOpenCollapse(); });
   document.getElementById('should-keep-opened-tabs').addEventListener('change', function() { BackgroundPage.send.setShouldKeepOpenedTabs(document.getElementById('should-keep-opened-tabs').checked); });
   document.getElementById('prompt-on-close').addEventListener('change', function() { BackgroundPage.send.setPromptOnClose(document.getElementById('prompt-on-close').checked); });
+  document.getElementById('remember-last-active-tab').addEventListener('change', function() { BackgroundPage.send.rememberLastActiveTab(document.getElementById('remember-last-active-tab').checked); });
   document.getElementById('automatically-open-collapse').addEventListener('change', function() {
     const checked = document.getElementById('automatically-open-collapse').checked;
     BackgroundPage.send.automaticallyOpenCollapse(checked);

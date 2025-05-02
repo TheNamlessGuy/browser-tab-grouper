@@ -203,6 +203,7 @@ const Tabs = {
       iconColor: 'icon-color',
       customIconURL: 'custom-icon-url',
       promptOnClose: 'prompt-on-close',
+      rememberLastActiveTab: 'remember-last-active-tab',
       automaticallyOpenCollapse: 'automatically-open-collapse',
     },
 
@@ -259,6 +260,15 @@ const Tabs = {
        */
       promptOnClose: async function(tabID, defaultValue = false) {
         return Tabs.value.get._value(tabID, Tabs.value.keys.promptOnClose, defaultValue);
+      },
+
+      /**
+       * @param {number} tabID
+       * @param {*} defaultValue
+       * @returns {Promise<boolean>}
+       */
+      rememberLastActiveTab: async function(tabID, defaultValue = false) {
+        return Tabs.value.get._value(tabID, Tabs.value.keys.rememberLastActiveTab, defaultValue);
       },
 
       /**
@@ -329,11 +339,20 @@ const Tabs = {
 
       /**
        * @param {string} group
-       * @returns {Promise<string|null>}
+       * @returns {Promise<boolean|null>}
        */
       promptOnClose: async function(group) {
         const groupTab = await Groups.groupTab.get(group);
         return await Tabs.value.get.promptOnClose(groupTab.id);
+      },
+
+      /**
+       * @param {string} group
+       * @returns {Promise<boolean|null>}
+       */
+      rememberLastActiveTab: async function(group) {
+        const groupTab = await Groups.groupTab.get(group);
+        return await Tabs.value.get.rememberLastActiveTab(groupTab.id);
       },
 
       /**
@@ -400,6 +419,15 @@ const Tabs = {
        */
       promptOnClose: async function(tabID, value) {
         await Tabs.value.set._value(tabID, Tabs.value.keys.promptOnClose, value);
+      },
+
+      /**
+       * @param {number} tabID
+       * @param {boolean} value
+       * @returns {Promise<void>}
+       */
+      rememberLastActiveTab: async function(tabID, value) {
+        await Tabs.value.set._value(tabID, Tabs.value.keys.rememberLastActiveTab, value);
       },
 
       /**
@@ -514,6 +542,20 @@ const Tabs = {
        * @param {true} value
        * @returns {Promise<void>}
        */
+      rememberLastActiveTab: async function(tabID, value) {
+        const currentValue = await Tabs.value.get.rememberLastActiveTab(tabID, null);
+        if (currentValue == null) {
+          await Tabs.value.set.rememberLastActiveTab(tabID, value);
+        }
+      },
+
+      /**
+       * Sets the value, if it wasn't set before
+       *
+       * @param {number} tabID
+       * @param {true} value
+       * @returns {Promise<void>}
+       */
       automaticallyOpenCollapse: async function(tabID, value) {
         const currentValue = await Tabs.value.get.automaticallyOpenCollapse(tabID, null);
         if (currentValue == null) {
@@ -534,6 +576,7 @@ const Tabs = {
         await Tabs.value.remove.iconColor(tabID);
         await Tabs.value.remove.customIconURL(tabID);
         await Tabs.value.remove.promptOnClose(tabID);
+        await Tabs.value.remove.rememberLastActiveTab(tabID);
         await Tabs.value.remove.automaticallyOpenCollapse(tabID);
       },
 
@@ -584,6 +627,14 @@ const Tabs = {
        */
       promptOnClose: async function(tabID) {
         await Tabs.value.remove._value(tabID, Tabs.value.keys.promptOnClose);
+      },
+
+      /**
+       * @param {number} tabID
+       * @returns {Promise<void>}
+       */
+      rememberLastActiveTab: async function(tabID) {
+        await Tabs.value.remove._value(tabID, Tabs.value.keys.rememberLastActiveTab);
       },
 
       /**
@@ -708,8 +759,11 @@ const Tabs = {
 
         if (newGroup === oldGroup) { // Swapped tabs within the same group - update the last active tab
           Groups.lastActiveTab.set(newGroup, info.tabId);
-        } else if (automaticallyOpenCollapse && Groups.lastActiveTab.get(newGroup) != null) { // Moved from one group to another - swap to the last active tab of the new group (if any)
-          await Tabs.setActive(Groups.lastActiveTab.get(newGroup));
+        } else if (automaticallyOpenCollapse) {
+          const lastActiveTab = await Groups.lastActiveTab.get(newGroup);
+          if (lastActiveTab != null) {
+            await Tabs.setActive(lastActiveTab);
+          }
         }
       }
     },
@@ -830,7 +884,7 @@ const Tabs = {
       const group = await Windows.getCurrentGroupIn(info.windowId);
       await Groups.collapse.allExcept(group, info.windowId);
       if (group != null) {
-        const lastActive = Groups.lastActiveTab.get(group);
+        const lastActive = await Groups.lastActiveTab.get(group);
         if (lastActive != null) {
           await Tabs.setActive(lastActive);
         }

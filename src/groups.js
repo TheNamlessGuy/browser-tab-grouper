@@ -263,10 +263,15 @@ const Groups = {
 
     /**
      * @param {string} group
-     * @returns {number|null} The ID of the last active tab in the group, if any
+     * @returns {Promise<number|null>} The ID of the last active tab in the group, if any
      */
-    get: function(group) {
-      return Groups.lastActiveTab._cache[group] ?? null;
+    get: async function(group) {
+      const shouldRemember = await Tabs.value.getViaGroup.rememberLastActiveTab(group);
+      if (shouldRemember) {
+        return Groups.lastActiveTab._cache[group] ?? null;
+      }
+
+      return null;
     },
 
     /**
@@ -341,6 +346,7 @@ const Groups = {
       await Tabs.value.initialize.shouldKeepOpenedTabs(tabID, false);
       await Tabs.value.initialize.iconColor(tabID, 'FFFFFF');
       await Tabs.value.initialize.promptOnClose(tabID, false);
+      await Tabs.value.initialize.rememberLastActiveTab(tabID, true);
       await Tabs.value.initialize.automaticallyOpenCollapse(tabID, true);
 
       await Groups.groupTab.update(group, windowID, tabID);
@@ -363,6 +369,7 @@ const Groups = {
           iconColor: await Tabs.value.get.iconColor(tabID),
           customIconURL: await Tabs.value.get.customIconURL(tabID),
           promptOnClose: await Tabs.value.get.promptOnClose(tabID),
+          rememberLastActiveTab: await Tabs.value.get.rememberLastActiveTab(tabID),
           automaticallyOpenCollapse: await Tabs.value.get.automaticallyOpenCollapse(tabID),
         },
       });

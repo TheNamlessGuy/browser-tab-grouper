@@ -14,6 +14,7 @@
  * @typedef {object} GroupTabOpts
  * @property {boolean} shouldKeepOpenedTabs
  * @property {boolean} promptOnClose
+ * @property {boolean} rememberLastActiveTab
  * @property {boolean} automaticallyOpenCollapse
  * @property {string|null} iconColor
  * @property {string|null} customIconURL
@@ -263,6 +264,15 @@ const Communication = {
       'set-opt--prompt-on-close': async function(group, msg) {
         const groupTab = await Groups.groupTab.get(group);
         await Tabs.value.set.promptOnClose(groupTab.id, msg.value);
+      },
+
+      /**
+       * @param {string} group
+       * @param {{value: boolean}} msg
+       */
+      'set-opt--remember-last-active-tab': async function(group, msg) {
+        const groupTab = await Groups.groupTab.get(group);
+        await Tabs.value.set.rememberLastActiveTab(groupTab.id, msg.value);
       },
 
       /**
