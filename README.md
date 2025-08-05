@@ -38,3 +38,6 @@ There are a few more options, such as:
 
 ## Future plans and known issues
 See [this issue](https://github.com/TheNamlessGuy/browser-tab-grouper/issues/1).
+
+## Cross-hosted
+This repository is hosted both on [GitHub](https://github.com/TheNamlessGuy/browser-tab-grouper) and [Codeberg](https://codeberg.org/TheNamlessGuy/browser-tab-grouper).
