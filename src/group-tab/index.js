@@ -1,6 +1,6 @@
 const BackgroundPage = {
   /**
-   * @type {BrowserPort|null}
+   * @type {browser.runtime.Port|null}
    */
   _port: null,
 
@@ -15,8 +15,8 @@ const BackgroundPage = {
   send: {
     /**
      * @param {string} action
-     * @param {Record<string, *>} extras
-     * @returns {*}
+     * @param {{[key: string]: any}} extras
+     * @returns {void}
      */
     action: function(action, extras = {}) {
       Errors.clear();
@@ -24,19 +24,19 @@ const BackgroundPage = {
     },
 
     /**
-     * @param {string} newName
+     * @param {RenameGroupMessageData} data
      * @returns {void}
      */
-    rename: function(newName) {
-      BackgroundPage.send.action('rename-group', {newName});
+    rename: function(data) {
+      BackgroundPage.send.action('rename-group', data);
     },
 
     /**
-     * @param {string} hex
+     * @param {SetIconColorMessageData} data
      * @returns {void}
      */
-    setIconColor: function(hex) {
-      BackgroundPage.send.action('set-icon-color', {hex});
+    setIconColor: function(data) {
+      BackgroundPage.send.action('set-icon-color', data);
     },
 
     /**
@@ -79,38 +79,41 @@ const BackgroundPage = {
     },
 
     /**
-     * @param {number} tabID
+     * @param {RemoveTabMessageData} data
      * @returns {void}
      */
-    removeTab: function(tabID) {
-      BackgroundPage.send.action('remove-tab', {tabID});
+    removeTab: function(data) {
+      BackgroundPage.send.action('remove-tab', data);
     },
 
     /**
-     * @param {number} tabID
+     * @param {SwapToTabMessageData} data
      * @returns {void}
      */
-    swapToTab: function(tabID) {
-      BackgroundPage.send.action('swap-to-tab', {tabID});
+    swapToTab: function(data) {
+      BackgroundPage.send.action('swap-to-tab', data);
     },
 
     /**
-     * @param {string} dataURL
+     * @param {SetCustomIconMessageData} data
      * @returns {void}
      */
-    setCustomIcon: function(dataURL) {
-      BackgroundPage.send.action('set-custom-icon', {dataURL});
+    setCustomIcon: function(data) {
+      BackgroundPage.send.action('set-custom-icon', data);
     },
 
     /**
      * @returns {void}
      */
     toggleOpenCollapse: function() {
-      BackgroundPage.send.action('toggle-open-collapse', {});
+      BackgroundPage.send.action('toggle-open-collapse');
     },
   },
 
   _on: {
+    /**
+     * @param {Message} msg
+     */
     message: function(msg) {
       if (msg.action in Actions) {
         Actions[msg.action](msg);
@@ -126,7 +129,7 @@ const Errors = {
    * @returns {void}
    */
   clear: function() {
-    const container = document.getElementById('error-container');
+    const container = Elements.errorContainer();
     while (container.children.length > 0) {
       container.children[0].remove();
     }
@@ -140,14 +143,14 @@ const Errors = {
    * @returns {void}
    */
   add: function(error, updateIcon = true) {
-    const element = document.createElement('c-error');
+    const element = /** @type {CustomErrorElement} */ (document.createElement('c-error'));
     element.message = error;
     element.addEventListener('removed', function() {
       if (Errors.count() === 0) {
         Icon.update();
       }
     });
-    document.getElementById('error-container').append(element);
+    Elements.errorContainer().append(element);
 
     if (updateIcon) {
       Icon.update();
@@ -170,7 +173,7 @@ const Errors = {
    * @returns {number}
    */
   count: function() {
-    return document.getElementById('error-container').children.length;
+    return Elements.errorContainer().children.length;
   },
 };
 
@@ -193,7 +196,7 @@ const Group = {
     if (!force && Group.get() === group) { return; }
 
     document.title = (!!group) ? group : 'No group name';
-    document.getElementById('name-input').value = group;
+    Elements.nameInput().value = group;
     Group.setInputWidth();
 
     const url = new URL(window.location.href);
@@ -201,7 +204,7 @@ const Group = {
     window.history.replaceState(null, null, url);
 
     if (pushToBackend) {
-      BackgroundPage.send.rename(group);
+      BackgroundPage.send.rename({newName: group});
     }
   },
 
@@ -209,7 +212,7 @@ const Group = {
    * @returns {void}
    */
   update: function() {
-    const newValue = document.getElementById('name-input').value.trim();
+    const newValue = Elements.nameInput().value.trim();
     const oldValue = Group.get();
 
     if (newValue !== oldValue) {
@@ -221,13 +224,13 @@ const Group = {
    * @returns {void}
    */
   setInputWidth: function() {
-    const element = document.getElementById('name-input');
+    const element = Elements.nameInput();
     const value = element.value.length < 10 ? 10 : element.value.length;
     element.style.width = `${value}ch`;
   },
 };
 
-const Tabs = {
+const FrontendTabs = {
   /**
    * @param {number} tabID
    * @returns {string}
@@ -237,29 +240,29 @@ const Tabs = {
   },
 
   /**
-   * @param {BrowserTab} tab
+   * @param {browser.tabs.Tab} tab
    * @returns {void}
    */
   add: function(tab) {
-    const id = Tabs._id(tab.id);
-    if (document.getElementById(id) != null) { // We're already displaying this tab
+    const id = FrontendTabs._id(tab.id);
+    if (Elements.tab(id) != null) { // We're already displaying this tab
       return;
     }
 
-    const element = document.createElement('c-tab');
+    const element = /** @type {CustomTabElement} */ (document.createElement('c-tab'));
     element.id = id;
     element.setTabData(tab);
-    element.addEventListener('remove-me', () => BackgroundPage.send.removeTab(tab.id));
-    element.addEventListener('swap-to-me', () => BackgroundPage.send.swapToTab(tab.id));
-    document.getElementById('tab-container').append(element);
+    element.addEventListener('remove-me', () => BackgroundPage.send.removeTab({tabID: tab.id}));
+    element.addEventListener('swap-to-me', () => BackgroundPage.send.swapToTab({tabID: tab.id}));
+    Elements.tabContainer().append(element);
   },
 
   /**
-   * @param {BrowserTab} tab
+   * @param {browser.tabs.Tab} tab
    * @returns {void}
    */
   update: function(tab) {
-    const element = document.getElementById(Tabs._id(tab.id));
+    const element = Elements.tab(FrontendTabs._id(tab.id));
     if (element != null) {
       element.setTabData(tab);
     }
@@ -270,9 +273,9 @@ const Tabs = {
    * @returns {void}
    */
   sort: function(order) {
-    const container = document.getElementById('tab-container');
+    const container = Elements.tabContainer();
     for (const tabID of order) {
-      container.append(document.getElementById(Tabs._id(tabID)));
+      container.append(Elements.tab(FrontendTabs._id(tabID)));
     }
   },
 
@@ -281,7 +284,7 @@ const Tabs = {
    * @returns {void}
    */
   remove: function(tabID) {
-    const element = document.getElementById(Tabs._id(tabID));
+    const element = Elements.tab(FrontendTabs._id(tabID));
     if (element != null) {
       element.remove();
     }
@@ -291,7 +294,7 @@ const Tabs = {
    * @returns {void}
    */
   removeAll: function() {
-    const container = document.getElementById('tab-container');
+    const container = Elements.tabContainer();
     while (container.children.length > 0) {
       container.children[0].remove();
     }
@@ -312,15 +315,15 @@ const Actions = {
    * @returns {void}
    */
   'init': function(msg) {
-    document.getElementById('should-keep-opened-tabs').checked = msg.opts.shouldKeepOpenedTabs;
-    document.getElementById('prompt-on-close').checked = msg.opts.promptOnClose;
-    document.getElementById('remember-last-active-tab').checked = msg.opts.rememberLastActiveTab;
-    document.getElementById('automatically-open-collapse').checked = msg.opts.automaticallyOpenCollapse;
-    document.getElementById('open-collapse-group-btn').classList.toggle('hidden', msg.opts.automaticallyOpenCollapse);
+    Elements.shouldKeepOpenedTabs().checked = msg.opts.shouldKeepOpenedTabs;
+    Elements.promptOnClose().checked = msg.opts.promptOnClose;
+    Elements.rememberLastActiveTab().checked = msg.opts.rememberLastActiveTab;
+    Elements.automaticallyOpenCollapse().checked = msg.opts.automaticallyOpenCollapse;
+    Elements.openCollapsegroupBtn().classList.toggle('hidden', msg.opts.automaticallyOpenCollapse);
 
-    Tabs.removeAll();
+    FrontendTabs.removeAll();
     for (const tab of msg.tabs) {
-      Tabs.add(tab);
+      FrontendTabs.add(tab);
     }
 
     Icon._customIconURL = msg.opts.customIconURL;
@@ -341,7 +344,7 @@ const Actions = {
    * @returns {void}
    */
   'add-tab': function(msg) {
-    Tabs.add(msg.tab);
+    FrontendTabs.add(msg.tab);
   },
 
   /**
@@ -349,7 +352,7 @@ const Actions = {
    * @returns {void}
    */
   'update-tab': function(msg) {
-    Tabs.update(msg.tab);
+    FrontendTabs.update(msg.tab);
   },
 
   /**
@@ -357,7 +360,7 @@ const Actions = {
    * @returns {void}
    */
   'sort-tabs': function(msg) {
-    Tabs.sort(msg.tabs.map(tab => tab.id));
+    FrontendTabs.sort(msg.tabs.map(tab => tab.id));
   },
 
   /**
@@ -365,7 +368,7 @@ const Actions = {
    * @returns {void}
    */
   'remove-tab': function(msg) {
-    Tabs.remove(msg.tabID);
+    FrontendTabs.remove(msg.tabID);
   },
 };
 
@@ -379,7 +382,7 @@ const Icon = {
    * @returns {void}
    */
   init: function() {
-    const picker = document.getElementById('tab-icon-color');
+    const picker = Elements.tabIconColor();
     picker.addEventListener('change', () => {
       Icon.color.set(Icon.color.get.hex(), true);
       Icon.update();
@@ -423,7 +426,7 @@ const Icon = {
    * @returns {void}
    */
   _set: function(img) {
-    document.getElementById('page-icon').href = img.src;
+    Elements.pageIcon().href = img.src;
   },
 
   /**
@@ -443,7 +446,7 @@ const Icon = {
        * @returns {string}
        */
       hex: function() {
-        return document.getElementById('tab-icon-color').value.substring(1); // Remove preceeding #
+        return Elements.tabIconColor().value.substring(1); // Remove preceeding #
       },
 
       /**
@@ -469,10 +472,10 @@ const Icon = {
      */
     set: function(hex, push) {
       hex = hex ?? 'FFFFFF';
-      document.getElementById('tab-icon-color').value = `#${hex}`;
+      Elements.tabIconColor().value = `#${hex}`;
 
       if (push) {
-        BackgroundPage.send.setIconColor(hex);
+        BackgroundPage.send.setIconColor({hex: hex});
       }
     },
   },
@@ -511,7 +514,7 @@ const Icon = {
 
   /**
    * @param {HTMLImageElement} img
-   * @returns {HTMLImageElement}
+   * @returns {Promise<HTMLImageElement>}
    */
   _overlayCustomIcon: async function(img) {
     const customIcon = await Icon.get.custom();
@@ -573,7 +576,7 @@ const Icon = {
         Icon._customIconURL = canvas.toDataURL();
         Icon.update();
 
-        BackgroundPage.send.setCustomIcon(Icon._customIconURL);
+        BackgroundPage.send.setCustomIcon({dataURL: Icon._customIconURL});
       });
       img.src = URL.createObjectURL(input.files[0]);
     });
@@ -581,42 +584,65 @@ const Icon = {
   },
 };
 
+const Elements = {
+  /** @param {string} id */
+  tab: (id) => { return /** @type {CustomTabElement|null} */ (document.getElementById(id))},
+
+  activeContent: () => { return /** @type {HTMLDivElement} */ (document.getElementById('active-content')); },
+  inactiveContent: () => { return /** @type {HTMLDivElement} */ (document.getElementById('inactive-content')); },
+
+  pageIcon: () => { return /** @type {HTMLLinkElement} */ (document.getElementById('page-icon')); },
+  tabContainer: () => { return /** @type {HTMLDivElement} */ (document.getElementById('tab-container')); },
+  nameInput: () => { return /** @type {HTMLInputElement} */ (document.getElementById('name-input')); },
+  errorContainer: () => { return /** @type {HTMLDivElement} */ (document.getElementById('error-container')); },
+  openCollapsegroupBtn: () => { return /** @type {HTMLButtonElement} */ (document.getElementById('open-collapse-group-btn')); },
+  highlightBtn: () => { return /** @type {HTMLButtonElement} */ (document.getElementById('highlight-btn')); },
+  uploadCustomIconBtn: () => { return /** @type {HTMLButtonElement} */ (document.getElementById('upload-custom-icon-btn')); },
+
+  automaticallyOpenCollapse: () => { return /** @type {LabeledCheckboxElement} */ (document.getElementById('automatically-open-collapse')); },
+  rememberLastActiveTab: () => { return /** @type {LabeledCheckboxElement} */ (document.getElementById('remember-last-active-tab')); },
+  shouldKeepOpenedTabs: () => { return /** @type {LabeledCheckboxElement} */ (document.getElementById('should-keep-opened-tabs')); },
+  promptOnClose: () => { return /** @type {LabeledCheckboxElement} */ (document.getElementById('prompt-on-close')); },
+
+  tabIconColor: () => { return /** @type {LabeledColorPickerElement} */ (document.getElementById('tab-icon-color')); },
+};
+
 function initialize() {
   Icon.init();
   Group.set(Group.get(), false, true);
   BackgroundPage.init();
 
-  const nameInput = document.getElementById('name-input');
+  const nameInput = Elements.nameInput();
   nameInput.addEventListener('input', Group.setInputWidth);
   nameInput.addEventListener('blur', Group.update);
   nameInput.addEventListener('keyup', function(e) {
     if (e.key === 'Enter') { Group.update(); }
   });
 
-  document.getElementById('highlight-btn').addEventListener('click', BackgroundPage.send.highlightTabs);
-  document.getElementById('upload-custom-icon-btn').addEventListener('click', Icon.uploadCustom);
-  document.getElementById('open-collapse-group-btn').addEventListener('click', function() { BackgroundPage.send.toggleOpenCollapse(); });
-  document.getElementById('should-keep-opened-tabs').addEventListener('change', function() { BackgroundPage.send.setShouldKeepOpenedTabs(document.getElementById('should-keep-opened-tabs').checked); });
-  document.getElementById('prompt-on-close').addEventListener('change', function() { BackgroundPage.send.setPromptOnClose(document.getElementById('prompt-on-close').checked); });
-  document.getElementById('remember-last-active-tab').addEventListener('change', function() { BackgroundPage.send.rememberLastActiveTab(document.getElementById('remember-last-active-tab').checked); });
-  document.getElementById('automatically-open-collapse').addEventListener('change', function() {
-    const checked = document.getElementById('automatically-open-collapse').checked;
+  Elements.highlightBtn().addEventListener('click', BackgroundPage.send.highlightTabs);
+  Elements.uploadCustomIconBtn().addEventListener('click', Icon.uploadCustom);
+  Elements.openCollapsegroupBtn().addEventListener('click', function() { BackgroundPage.send.toggleOpenCollapse(); });
+  Elements.shouldKeepOpenedTabs().addEventListener('change', function() { BackgroundPage.send.setShouldKeepOpenedTabs(Elements.shouldKeepOpenedTabs().checked); });
+  Elements.promptOnClose().addEventListener('change', function() { BackgroundPage.send.setPromptOnClose(Elements.promptOnClose().checked); });
+  Elements.rememberLastActiveTab().addEventListener('change', function() { BackgroundPage.send.rememberLastActiveTab(Elements.rememberLastActiveTab().checked); });
+  Elements.automaticallyOpenCollapse().addEventListener('change', function() {
+    const checked = Elements.automaticallyOpenCollapse().checked;
     BackgroundPage.send.automaticallyOpenCollapse(checked);
-    document.getElementById('open-collapse-group-btn').classList.toggle('hidden', checked);
+    Elements.openCollapsegroupBtn().classList.toggle('hidden', checked);
   });
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
   if (Group.get() == null) { /** @see Tabs._on.created */
-    document.getElementById('active-content').classList.add('hidden');
+    Elements.activeContent().classList.add('hidden');
   } else {
-    document.getElementById('inactive-content').classList.add('hidden');
+    Elements.inactiveContent().classList.add('hidden');
     initialize();
   }
 });
 
 window.addEventListener('beforeunload', (e) => {
-  if (document.getElementById('prompt-on-close')?.checked) {
+  if (Elements.promptOnClose().checked) {
     e.preventDefault();
   }
 });

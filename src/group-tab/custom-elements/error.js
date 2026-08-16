@@ -41,6 +41,9 @@ button {
     this.attachShadow({mode: 'closed'}).append(style, container);
   }
 
+  /**
+   * @param {string} msg
+   */
   set message(msg) {
     this._message.innerHTML = msg;
   }

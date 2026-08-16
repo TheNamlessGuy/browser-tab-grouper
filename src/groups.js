@@ -2,9 +2,9 @@ const Groups = {
   /**
    * When moving a tab from one window to another, it loses all its session data.
    * In order for us to be able to tell the group that the tab is no longer taking part of it, we need to cache the data.
-   * @see Tabs._on.attached.
+   * @see Tabs._on.attached
    *
-   * @type {Record<number, string>} Maps tab ID to the group the tab is part of.
+   * @type {{[tabID: number]: string}} Maps tab ID to the group the tab is part of.
    */
   groupedTabCache: {},
 
@@ -51,7 +51,7 @@ const Groups = {
    * @returns {Promise<string>} The name of the created group
    */
   add: async function(group, windowID, index) {
-    group = group ?? await Groups._getNextFreeName();
+    group = group ?? await Groups._getNextFreeName(); // Technically, if we get here twice in quick succession with the passed group being null, we can end up claiming the same name twice. It'd add a lot of complexity to try and fix, and I don't think you can humanly be that quick, so I'm fine with leaving it for now.
     await Groups.groupTab.create(group, windowID, index);
     await Menus.addGroup(group);
     await Groups.collapse.allExcept(group, windowID);
@@ -60,7 +60,7 @@ const Groups = {
 
   /**
    * @param {string} name
-   * @returns {string[]}
+   * @returns {Promise<string[]>}
    */
   checkNameValidity: async function(name) {
     const errors = [];
@@ -127,7 +127,7 @@ const Groups = {
 
   /**
    * @param {string} group
-   * @param {BrowserTab} tab
+   * @param {browser.tabs.Tab} tab
    * @returns {Promise<void>}
    */
   addTabTo: async function(group, tab) {
@@ -257,7 +257,7 @@ const Groups = {
 
   lastActiveTab: {
     /**
-     * @type {Record<string,number>} Maps the group to the tab ID
+     * @type {{[groupName: string]: number}} Maps the group to the tab ID
      */
     _cache: {}, // TODO: Once you can use tabs.query on session values, use session values instead
 
@@ -290,6 +290,23 @@ const Groups = {
     remove: function(group) {
       delete Groups.lastActiveTab._cache[group];
     },
+
+    /**
+     * @param {string} group
+     * @returns {Promise<void>}
+     */
+    setActive: async function(group) {
+      const id = await Groups.lastActiveTab.get(group);
+      if (id == null) { return; } // No cached value, nothing to do
+
+      const tab = await Tabs.get(id);
+      if (tab == null) { // Tab is gone, nothing to do
+        Groups.lastActiveTab.remove(group);
+        return;
+      }
+
+      await Tabs.setActive(id);
+    },
   },
 
   groupTab: {
@@ -299,7 +316,7 @@ const Groups = {
      * That way, we can un-group the grouped tabs if the group tab is removed.
      * Something similar happens when you move a group tab to a new window as well.
      *
-     * @type {Record<number,string>} Maps tab ID to the group
+     * @type {{[tabID: number]: string}} Maps tab ID to the group
      */
     cache: {},
 
@@ -318,7 +335,7 @@ const Groups = {
      * @param {number} windowID
      * @param {number} index
      * @param {boolean} active
-     * @returns {Promise<BrowserTab>}
+     * @returns {Promise<browser.tabs.Tab>}
      */
     create: async function(group, windowID, index, active = true) {
       const tab = await browser.tabs.create({
@@ -379,7 +396,7 @@ const Groups = {
      * @param {string} group
      * @param {number|null} windowID
      * @param {number|null} except
-     * @returns {Promise<BrowserTab|null>}
+     * @returns {Promise<browser.tabs.Tab|null>}
      */
     get: async function(group, windowID = null, except = null) {
       windowID = windowID ?? await Windows.getIDForGroup(group, except);

@@ -13,7 +13,7 @@ const Runtime = {
 
   _on: {
     /**
-     * @param {{id?: string, previousVersion?: string, reason: "install"|"update"|"browser_update"|"chrome_update"|"shared_module_update", temporary: boolean}} details https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/runtime/onInstalled#details
+     * @param {browser.runtime._OnInstalledDetails} details
      * @returns {Promise<void>}
      */
     installed: async function(details) {

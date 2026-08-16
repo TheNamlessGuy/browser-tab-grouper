@@ -50,7 +50,7 @@ button { margin-right: 5px; }
   }
 
   /**
-   * @param {BrowserTab} tab
+   * @param {browser.tabs.Tab} tab
    * @returns {void}
    */
   setTabData(tab) {

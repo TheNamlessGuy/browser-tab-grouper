@@ -1,12 +1,7 @@
-/** BrowserWindow
- * @typedef {object} BrowserWindow https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/windows/Window
- * @property {number} id
- */
-
 const Windows = {
   /**
    * @param {boolean|null} incognito When true, only return windows that are in incognito mode. When false, return windows that aren't incognito. When null, return all windows regardless
-   * @returns {Promise<BrowserWindow[]>}
+   * @returns {Promise<browser.windows.Window[]>}
    */
   getAll: async function(incognito = null) {
     const windows = await browser.windows.getAll();
@@ -19,7 +14,7 @@ const Windows = {
 
   /**
    * @param {number} windowID
-   * @returns {Promise<BrowserTab[]>}
+   * @returns {Promise<browser.tabs.Tab[]>}
    */
   getAllTabsIn: async function(windowID) {
     return await browser.tabs.query({windowId: windowID});
@@ -45,7 +40,7 @@ const Windows = {
 
   /**
    * @param {number} windowID
-   * @returns {string|null}
+   * @returns {Promise<string|null>}
    */
   getCurrentGroupIn: async function(windowID) {
     const tab = (await browser.tabs.query({windowId: windowID, active: true}))[0];

@@ -1,10 +1,3 @@
-/** OnClickData
- * @typedef {object} OnClickData https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/menus/OnClickData
- * @property {string} menuItemId
- * @property {number} button
- * @property {('Alt'|'Command'|'Ctrl'|'MacCtrl'|'Shift')[]} modifiers
- */
-
 /** MenuGroupVerb
  * @typedef {'Add'|'Move'|'Remove'} MenuGroupVerb
  */
@@ -112,8 +105,8 @@ const Menus = {
    * If the user has a selection of tabs and clicks on a tab within that selection, return all selected tabs
    * If not, return the clicked tab.
    *
-   * @param {BrowserTab} clickedTab
-   * @returns {Promise<BrowserTab[]>}
+   * @param {browser.tabs.Tab} clickedTab
+   * @returns {Promise<browser.tabs.Tab[]>}
    */
   _getRelevantTabs: async function(clickedTab) {
     let selected = await browser.tabs.query({windowId: clickedTab.windowId, highlighted: true});
@@ -147,8 +140,8 @@ const Menus = {
 
   _on: {
     /**
-     * @param {OnClickData} info
-     * @param {BrowserTab} tab
+     * @param {browser.menus._OnShownInfo} info
+     * @param {browser.tabs.Tab} tab
      * @returns {Promise<void>}
      */
     show: async function(info, tab) {
@@ -200,7 +193,7 @@ const Menus = {
 
     /**
      * @param {string} group
-     * @param {BrowserTab} clickedTab
+     * @param {browser.tabs.Tab} clickedTab
      * @returns {Promise<void>}
      */
     groupAction: async function(group, clickedTab) {
@@ -220,22 +213,23 @@ const Menus = {
     },
 
     /**
-     * @param {OnClickData} info
-     * @param {BrowserTab} clickedTab
+     * @param {browser.menus.OnClickData} info
+     * @param {browser.tabs.Tab} clickedTab
      * @returns {Promise<void>}
      */
     clicked: async function(info, clickedTab) {
-      if (info.menuItemId === Menus._ids.addToNewGroup) {
-        Menus._on.addToNewGroup(clickedTab);
-      } else if (info.menuItemId.startsWith(Menus._ids.groupPrefix)) {
-        Menus._on.groupAction(Menus._ids.extractGroup(info.menuItemId), clickedTab);
-      } else if (info.menuItemId === Menus._ids.openCollapse) {
-        Menus._on.onOpenCollapseToggle(clickedTab);
+      const id = /** @type {string} */ (info.menuItemId);
+      if (id === Menus._ids.addToNewGroup) {
+        await Menus._on.addToNewGroup(clickedTab);
+      } else if (id.startsWith(Menus._ids.groupPrefix)) {
+        await Menus._on.groupAction(Menus._ids.extractGroup(id), clickedTab);
+      } else if (id === Menus._ids.openCollapse) {
+        await Menus._on.onOpenCollapseToggle(clickedTab);
       }
     },
 
     /**
-     * @param {BrowserTab} clickedTab
+     * @param {browser.tabs.Tab} clickedTab
      * @returns {Promise<void>}
      */
     addToNewGroup: async function(clickedTab) {
@@ -248,7 +242,7 @@ const Menus = {
     },
 
     /**
-     * @param {BrowserTab} clickedTab
+     * @param {browser.tabs.Tab} clickedTab
      * @returns {Promise<void>}
      */
     onOpenCollapseToggle: async function(clickedTab) {

@@ -1,15 +1,3 @@
-/** BrowserPort
- * @typedef {object} BrowserPort
- * @property {string} name
- * @property {(Object) => void} postMessage
- * @property {BrowserPortOnMessage} onMessage
- */
-
-/** BrowserPortOnMessage
- * @typedef {object} BrowserPortOnMessage
- * @property {(callback: (msg: any) => void)} addListener
- */
-
 /** GroupTabOpts
  * @typedef {object} GroupTabOpts
  * @property {boolean} shouldKeepOpenedTabs
@@ -20,72 +8,134 @@
  * @property {string|null} customIconURL
  */
 
-/** InitMessage
- * @typedef {object} InitMessage
- * @property {BrowserTab[]} tabs
+/** Message
+ * @typedef {InitMessage|RenameGroupMessage|AddTabMessage|UpdateTabMessage|SortTabsMessage|RemoveTabMessage|ErrorsMessage|SetIconColorMessage|SwapToTabMessage|SetCustomIconMessage|ToggleOpenCollapseMessage} Message
+ */
+
+/** InitMessageData
+ * @typedef {object} InitMessageData
+ * @property {browser.tabs.Tab[]} tabs
  * @property {GroupTabOpts} opts
  */
+/** InitMessage
+ * @typedef {InitMessageData & {action: 'init'}} InitMessage
+ */
 
-/** RenameGroupMessage
- * @typedef {object} RenameGroupMessage
+/** RenameGroupMessageData
+ * @typedef {object} RenameGroupMessageData
  * @property {string} newName
  */
-
-/** AddTabMessage
- * @typedef {object} AddTabMessage
- * @property {BrowserTab} tab
+/** RenameGroupMessage
+ * @typedef {RenameGroupMessageData & {action: 'rename-group'}} RenameGroupMessage
  */
 
+/** AddTabMessageData
+ * @typedef {object} AddTabMessageData
+ * @property {browser.tabs.Tab} tab
+ */
+/** RenameGroupMessage
+ * @typedef {AddTabMessageData & {action: 'add-tab'}} AddTabMessage
+ */
+
+/** UpdateTabMessageData
+ * @typedef {object} UpdateTabMessageData
+ * @property {browser.tabs.Tab} tab
+ */
 /** UpdateTabMessage
- * @typedef {object} UpdateTabMessage
- * @property {BrowserTab} tab
+ * @typedef {AddTabMessageData & {action: 'update-tab'}} UpdateTabMessage
  */
 
+/** SortTabsMessageData
+ * @typedef {object} SortTabsMessageData
+ * @property {browser.tabs.Tab[]} tabs
+ */
 /** SortTabsMessage
- * @typedef {object} SortTabsMessage
- * @property {BrowserTab[]} tabs
+ * @typedef {SortTabsMessageData & {action: 'sort-tabs'}} SortTabsMessage
  */
 
-/** RemoveTabMessage
- * @typedef {object} RemoveTabMessage
+/** RemoveTabMessageData
+ * @typedef {object} RemoveTabMessageData
  * @property {number} tabID
  */
-
-/** ErrorsMessage
- * @typedef {object} ErrorsMessage
- * @property {string[]} errors
+/** RemoveTabMessage
+ * @typedef {RemoveTabMessageData & {action: 'remove-tab'}} RemoveTabMessage
  */
 
-/** SetIconColorMessage
- * @typedef {object} SetIconColorMessage
+/** ErrorsMessageData
+ * @typedef {object} ErrorsMessageData
+ * @property {string[]} errors
+ */
+/** ErrorsMessage
+ * @typedef {ErrorsMessageData & {action: 'errors'}} ErrorsMessage
+ */
+
+/** SetIconColorMessageData
+ * @typedef {object} SetIconColorMessageData
  * @property {string} hex
+ */
+/** SetIconColorMessage
+ * @typedef {SetIconColorMessageData & {action: 'set-icon-color'}} SetIconColorMessage
+ */
+
+/** SetCustomIconMessageData
+ * @typedef {object} SetCustomIconMessageData
+ * @property {string} dataURL
+ */
+/** SetCustomIconMessage
+ * @typedef {SetCustomIconMessageData & {action: 'set-custom-icon'}} SetCustomIconMessage
+ */
+
+/** SwapToTabMessageData
+ * @typedef {object} SwapToTabMessageData
+ * @property {number} tabID
+ */
+/** SwapToTabMessage
+ * @typedef {SwapToTabMessageData & {action: 'swap-to-tab'}} SwapToTabMessage
+ */
+
+/** ToggleOpenCollapseMessage
+ * @typedef {{action: 'toggle-open-collapse'}} ToggleOpenCollapseMessage
  */
 
 const Communication = {
   /**
-   * @type {Object.<string, BrowserPort>}
+   * @type {{[groupName: string]: browser.runtime.Port}}
    */
   _ports: {},
   /**
-   * @type {Object.<string, [(port: BrowserPort) => void>]}
+   * @type {{[groupName: string]: ((port: browser.runtime.Port) => void)[]}}
    */
   _onPortGet: {},
 
   /**
    * @param {string} group
-   * @returns {Promise<BrowserPort>}
+   * @param {number} [timeout=60000] How long to wait for a timeout in milliseconds
+   * @returns {Promise<browser.runtime.Port|null>}
    */
-  _getPort: function(group) {
+  _getPort: function(group, timeout = 60000) {
     return new Promise((resolve) => {
       if (Communication._ports[group] != null) {
         resolve(Communication._ports[group]);
         return;
       }
 
+      const timeoutID = setTimeout(() => {
+        if (group in Communication._onPortGet) {
+          delete Communication._onPortGet[group];
+        }
+
+        resolve(null);
+      }, timeout);
+
+      const wrapped = (port) => {
+        clearTimeout(timeoutID);
+        resolve(port);
+      };
+
       if (group in Communication._onPortGet) {
-        Communication._onPortGet[group].push(resolve);
+        Communication._onPortGet[group].push(wrapped);
       } else {
-        Communication._onPortGet[group] = [resolve];
+        Communication._onPortGet[group] = [wrapped];
       }
     });
   },
@@ -104,6 +154,7 @@ const Communication = {
    */
   renameGroup: function(oldName, newName) {
     const port = Communication._ports[oldName];
+    if (port == null) { return; }
     port.name = newName;
     delete Communication._ports[oldName];
     Communication._ports[newName] = port;
@@ -120,8 +171,8 @@ const Communication = {
     /**
      * @param {string} group
      * @param {string} action
-     * @param {Record<string, any>} data
-     * @returns {void}
+     * @param {{[key: string]: any}} data
+     * @returns {Promise<void>}
      */
     _data: async function(group, action, data) {
       const port = await Communication._getPort(group);
@@ -132,7 +183,7 @@ const Communication = {
 
     /**
      * @param {string} group
-     * @param {InitMessage} data
+     * @param {InitMessageData} data
      * @returns {void}
      */
     init: function(group, data) {
@@ -150,7 +201,7 @@ const Communication = {
 
     /**
      * @param {string} group
-     * @param {BrowserTab} data
+     * @param {browser.tabs.Tab} tab
      * @returns {void}
      */
     addTab: function(group, tab) {
@@ -159,7 +210,7 @@ const Communication = {
 
     /**
      * @param {string} group
-     * @param {BrowserTab} data
+     * @param {browser.tabs.Tab} tab
      * @returns {void}
      */
     updateTab: function(group, tab) {
@@ -168,7 +219,7 @@ const Communication = {
 
     /**
      * @param {string} group
-     * @param {BrowserTab[]} tabs
+     * @param {browser.tabs.Tab[]} tabs
      * @returns {void}
      */
     sortTabs: function(group, tabs) {
@@ -196,12 +247,12 @@ const Communication = {
 
   _on: {
     /**
-     * @param {BrowserPort} port
+     * @param {browser.runtime.Port} port
      * @returns {void}
      */
     connect: function(port) {
       Communication._ports[port.name] = port;
-      port.onMessage.addListener((msg) => {
+      port.onMessage.addListener(/** @param {Message} msg */ (msg) => {
         if (msg.action in Communication._on.map) {
           Communication._on.map[msg.action](port.name, msg);
         } else {
@@ -295,7 +346,7 @@ const Communication = {
 
       /**
        * @param {string} group
-       * @param {{tabID: number}} msg
+       * @param {SwapToTabMessage} msg
        * @returns {Promise<void>}
        */
       'swap-to-tab': async function(group, msg) {
@@ -304,7 +355,7 @@ const Communication = {
 
       /**
        * @param {string} group
-       * @param {{dataURL: string}} msg
+       * @param {SetCustomIconMessage} msg
        * @returns {Promise<void>}
        */
       'set-custom-icon': async function(group, msg) {
@@ -314,7 +365,7 @@ const Communication = {
 
       /**
        * @param {string} group
-       * @param {{}} msg
+       * @param {ToggleOpenCollapseMessage} msg
        * @returns {Promise<void>}
        */
       'toggle-open-collapse': async function(group, msg) {

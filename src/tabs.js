@@ -1,15 +1,3 @@
-/** BrowserTab
- * @typedef {object} BrowserTab https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/tabs/Tab
- * @property {number} id
- * @property {number} openerTabId
- * @property {number} windowId
- * @property {number} index
- * @property {'loading'|'complete'} status
- * @property {string} favIconUrl
- * @property {string} title
- * @property {string} url
- */
-
 const Tabs = {
   /**
    * @returns {Promise<void>}
@@ -42,7 +30,7 @@ const Tabs = {
 
   /**
    * @param {number} tabID
-   * @returns {Promise<BrowserTab>}
+   * @returns {Promise<browser.tabs.Tab>}
    */
   get: function(tabID) {
     return new Promise((resolve) => {
@@ -82,7 +70,7 @@ const Tabs = {
    * @param {string} group
    * @param {number|null} [windowID=null] The ID of the window that owns the group
    * @param {boolean} [includeGroupTab=false]
-   * @returns {Promise<BrowserTab[]>}
+   * @returns {Promise<browser.tabs.Tab[]>}
    */
   getTabsInGroup: async function(group, windowID = null, includeGroupTab = false) {
     const retval = [];
@@ -185,7 +173,7 @@ const Tabs = {
         const span = await Tabs.getGroupIndexSpan(group, windowID, true);
         if (span == null) { continue; }
 
-        if (index >= span.min & index <= span.max) {
+        if (index >= span.min && index <= span.max) {
           await Tabs.move.toIndex(tabID, span.max);
           return span.max; // After this we don't need to check any more, if we assume that all tabs BUT the current tab are correct
         }
@@ -357,7 +345,7 @@ const Tabs = {
 
       /**
        * @param {string} group
-       * @returns {Promise<string|null>}
+       * @returns {Promise<boolean>}
        */
       automaticallyOpenCollapse: async function(group) {
         const groupTab = await Groups.groupTab.get(group);
@@ -483,7 +471,7 @@ const Tabs = {
        * Sets the value, if it wasn't set before
        *
        * @param {number} tabID
-       * @param {true} value
+       * @param {boolean} value
        * @returns {Promise<void>}
        */
       shouldKeepOpenedTabs: async function(tabID, value) {
@@ -525,7 +513,7 @@ const Tabs = {
        * Sets the value, if it wasn't set before
        *
        * @param {number} tabID
-       * @param {true} value
+       * @param {boolean} value
        * @returns {Promise<void>}
        */
       promptOnClose: async function(tabID, value) {
@@ -663,7 +651,7 @@ const Tabs = {
      * This is needed due to the fact that me calling move for some reason triggers the onMoved callback for me.
      * In order to not reach stack depth immediately, don't try to process tabs that are being processed.
      *
-     * @type {Record<number,true>} Maps tab ID to nothing worth noting
+     * @type {{[tabID: number]: true}} Maps tab ID to nothing worth noting
      */
     movedCache: {},
 
@@ -679,15 +667,16 @@ const Tabs = {
      * @see Tabs._on.created
      * @see Tabs._on.activated
      *
-     * @type {Record<number, Promise<void>>} Maps the tab ID to a promise that we can await to be able to resume when the function should ACTUALLY have been called
+     * @type {{[tabID: number]: Promise<void>}} Maps the tab ID to a promise that we can await to be able to resume when the function should ACTUALLY have been called
      */
     creatingCache: {},
 
     /**
-     * @param {BrowserTab} tab
+     * @param {browser.tabs.Tab} tab
      * @returns {Promise<void>}
      */
     created: async function(tab) {
+      /** @type {(value: void | PromiseLike<void>) => void} */
       let resolve = null;
       Tabs._on.creatingCache[tab.id] = new Promise((_resolve) => resolve = _resolve);
 
@@ -742,7 +731,7 @@ const Tabs = {
     },
 
     /**
-     * @param {{previousTabId: number, tabId: number, windowId: number}} info https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/tabs/onActivated#activeinfo_2
+     * @param {browser.tabs._OnActivatedActiveInfo} info
      * @returns {Promise<void>}
      */
     activated: async function(info) {
@@ -760,24 +749,22 @@ const Tabs = {
         if (newGroup === oldGroup) { // Swapped tabs within the same group - update the last active tab
           Groups.lastActiveTab.set(newGroup, info.tabId);
         } else if (automaticallyOpenCollapse) {
-          const lastActiveTab = await Groups.lastActiveTab.get(newGroup);
-          if (lastActiveTab != null) {
-            await Tabs.setActive(lastActiveTab);
-          }
+          await Groups.lastActiveTab.setActive(newGroup);
         }
       }
     },
 
     /**
      * @param {number} tabID
-     * @param {{newWindowId: number, newPosition: number}} info https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/API/tabs/onAttached#attachinfo_2
-     * @returns {Promisevdoi>}
+     * @param {browser.tabs._OnAttachedAttachInfo} info
+     * @returns {Promise<void>}
      */
     attached: async function(tabID, info) {
       const group = Groups.groupedTabCache[tabID];
       const wasGroupTabOf = Groups.groupTab.cache[tabID];
 
       if (wasGroupTabOf != null) { // A group tab was moved to a new window, recreate the group
+        // If we get here, group and wasGroupTabOf should have the same value
         const oldWindowID = await Windows.getIDForGroup(group);
         await Groups.groupTab.init(tabID, group, oldWindowID);
 
@@ -786,8 +773,8 @@ const Tabs = {
           await Tabs.move.intoGroup(tab.id);
         }
 
-        await Group.collapse.allExceptCurrent(info.newWindowId);
-        await Group.collapse.allExceptCurrent(oldWindowID);
+        await Groups.collapse.allExceptCurrent(info.newWindowId);
+        await Groups.collapse.allExceptCurrent(oldWindowID);
       } else if (group) { // A grouped tab was moved to a new window
         const oldWindowID = await Windows.getIDForGroup(group);
         if (info.newWindowId !== oldWindowID) { // Tell the remainder of the group of the deserter
@@ -800,8 +787,8 @@ const Tabs = {
 
     /**
      * @param {number} tabID
-     * @param {Partial<BrowserTab>} changeInfo
-     * @param {BrowserTab} tab
+     * @param {Partial<browser.tabs.Tab>} changeInfo
+     * @param {browser.tabs.Tab} tab
      * @returns {Promise<void>}
      */
     updated: async function(tabID, changeInfo, tab) {
@@ -826,10 +813,10 @@ const Tabs = {
 
     /**
      * This only handles moves within the same window. For swapping between:
-     * @see Tabs._on.attached.
+     * @see Tabs._on.attached
      *
      * @param {number} tabID
-     * @param {{windowId: number, fromIndex: number, toIndex: number}} info https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/tabs/onMoved#moveinfo_2
+     * @param {browser.tabs._OnMovedMoveInfo} info
      * @returns {Promise<void>}
      */
     moved: async function(tabID, info) {
@@ -868,7 +855,7 @@ const Tabs = {
 
     /**
      * @param {number} tabID
-     * @param {{windowId: number, isWindowClosing: boolean}} info https://developer.mozilla.org/docs/Mozilla/Add-ons/WebExtensions/API/tabs/onRemoved#removeinfo_2
+     * @param {browser.tabs._OnRemovedRemoveInfo} info
      * @returns {Promise<void>}
      */
     removed: async function(tabID, info) {
@@ -881,13 +868,12 @@ const Tabs = {
       delete Groups.groupTab.cache[tabID];
       delete Groups.groupedTabCache[tabID];
 
+      if (info.isWindowClosing) { return; } // If the window is closing, nothing we do below will matter, and it may even crash
+
       const group = await Windows.getCurrentGroupIn(info.windowId);
       await Groups.collapse.allExcept(group, info.windowId);
       if (group != null) {
-        const lastActive = await Groups.lastActiveTab.get(group);
-        if (lastActive != null) {
-          await Tabs.setActive(lastActive);
-        }
+        await Groups.lastActiveTab.setActive(group);
       }
     },
   },
