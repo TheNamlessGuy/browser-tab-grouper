@@ -766,7 +766,7 @@ const Tabs = {
       if (wasGroupTabOf != null) { // A group tab was moved to a new window, recreate the group
         // If we get here, group and wasGroupTabOf should have the same value
         const oldWindowID = await Windows.getIDForGroup(group);
-        await Groups.groupTab.init(tabID, group, oldWindowID);
+        await Groups.groupTab.init(tabID, group, info.newWindowId);
 
         const tabs = await Tabs.getTabsInGroup(group, oldWindowID);
         for (const tab of tabs) {

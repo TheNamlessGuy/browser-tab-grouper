@@ -21,7 +21,7 @@ const Groups = {
 
         if (isGroupTab) {
           await Groups.groupTab.init(tab.id, group, tab.windowId);
-        } else {
+        } else if (group != null) {
           Groups.groupedTabCache[tab.id] = group;
         }
       }
